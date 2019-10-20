@@ -4,7 +4,7 @@ import (
 	"unsafe"
 	//"bufio"
 	"bytes"
-	//"encoding/binary"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math/big"
@@ -15,7 +15,7 @@ import (
 )
 
 func findDelim(buffer []byte, idx int) int { // byte??
-	delim := -1
+	delim := 0
 	for i := idx; i < len(buffer); i++ {
 		fmt.Printf("buffer[i] : %v\n", buffer[i])
 		if nullstr == buffer[i] {
@@ -35,22 +35,26 @@ type BufferReader struct {
 	bytes []byte
 }
 
-func (b *BufferReader) readBigUInt64LE() *big.Int {
-	lo := b.readUInt32LE()
-	hi := b.readUInt32LE()
+func (b *BufferReader) readBigUInt64LE() (*big.Int, error) {
+	lo, err := b.readUInt32LE()
+	hi, err := b.readUInt32LE()
+	if err != nil {
+		return nil, err
+	}
 	biglow := big.NewInt(int64(lo))
 	bighigh := big.NewInt(int64(hi))
 	n := biglow.Or(biglow, bighigh)
-	return n.Lsh(n, 32) // TODO
+	return n.Lsh(n, 32), nil
 }
 
-func (b *BufferReader) readUInt32LE() uint32 {
-	val, err := b.buff.ReadBytes(byte(b.index))
-	if err != nil {
-		return 1 // todo
+func (b *BufferReader) readUInt32LE() (uint32, error) {
+	var i uint32
+	buf := bytes.NewReader(b.bytes[b.index:])
+	if err := binary.Read(buf, binary.LittleEndian, &i); err != nil {
+		fmt.Println("binary.Read failed:", err)
 	}
 	b.index += 4
-	return *(*uint32)(unsafe.Pointer(&val))
+	return i, nil
 }
 
 func (b *BufferReader) readInt32LE() int32 {
@@ -76,7 +80,7 @@ func (b *BufferReader) readInt8() int8 {
 	if err != nil {
 		return -1
 	}
-	b.index += 1
+	b.index++
 	return *(*int8)(unsafe.Pointer(&val))
 }
 
@@ -85,7 +89,8 @@ func (b *BufferReader) readUInt8() uint8 {
 	if err != nil {
 		return 0 // todo
 	}
-	b.index += 1
+	b.index++
+
 	return *(*uint8)(unsafe.Pointer(&val))
 }
 
@@ -114,6 +119,7 @@ func (b *BufferReader) readCString() ([]string, error) {
 			return "", err
 		}*/
 		b.index = delim + 1
+		fmt.Printf("b.bytes : %v\nindex : %d\n", b.bytes, b.index)
 	}
 	return result, nil
 }
@@ -186,18 +192,22 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 		bytes: data,
 	}
 	datas.buff.Write(data)
-	//delim := findDelim(data, datas.index)
-	cmd, err := datas.readCString()
-	ver := datas.readUInt32LE()
-	//str, err := datas.buff.ReadString(nullstr)
-	//str, _ := datas.readCString()
-	fmt.Printf("CMD : %s", cmd)     //
-	fmt.Printf("Version : %s", ver) //
+	for !datas.eof() {
+		cmd, err := datas.readCString()
+		ver, err := datas.readUInt32LE()
+		if err != nil {
+			panic(err)
+		}
 
-	//datastr := string(data)
-	//fmt.Println(datastr)
-	//fmt.Println(datatype)
+		//str, err := datas.buff.ReadString(nullstr)
+		//str, _ := datas.readCString()
+		fmt.Printf("CMD : %s", cmd) //
+		fmt.Printf("Version : %d", ver)
 
+		//datastr := string(data)
+		//fmt.Println(datastr)
+		//fmt.Println(datatype)
+	}
 }
 
 func main() {
