@@ -1,16 +1,9 @@
 package main
 
 import (
-	"github.com/FlowingSPDG/HLAE-Server-GO/HLAE-Server-GO/src/mirvpgl"
-	"math"
-	"strings"
-	"unsafe"
-	//"bufio"
-	"bytes"
-	"encoding/binary"
 	"fmt"
+	"github.com/FlowingSPDG/HLAE-Server-GO/HLAE-Server-GO/src/mirvpgl"
 	"log"
-	"math/big"
 	"net/http"
 	_ "strconv"
 
@@ -48,8 +41,6 @@ var upgrader = websocket.Upgrader{}
 
 // クライアントのハンドラ
 func HandleClients(w http.ResponseWriter, r *http.Request) {
-	// ゴルーチンで起動
-	//broadcastMessagesToClients()
 	// websocket の状態を更新
 	websocket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -70,12 +61,12 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 			delete(clients, websocket)
 		}
 		var datas = &mirvpgl.BufferReader{
-			index: 0,
-			bytes: data,
+			Index: 0,
+			Bytes: data,
 		}
-		datas.buff.Write(data)
-		if !datas.eof() {
-			cmd, err := datas.readCString()
+		datas.Buff.Write(data)
+		if !datas.Eof() {
+			cmd, err := datas.ReadCString()
 			if err != nil {
 				panic(err)
 			}
@@ -87,7 +78,7 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 			case "hello":
 				//
 			case "version":
-				version, err := datas.readUInt32LE()
+				version, err := datas.ReadUInt32LE()
 				if err != nil {
 					panic(err)
 				}
@@ -97,7 +88,7 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 			case "dataStart":
 				//
 			case "levelInit":
-				mapname, err := datas.readCString()
+				mapname, err := datas.ReadCString()
 				if err != nil {
 					panic(err)
 				}
@@ -106,21 +97,21 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 			case "levelShutdown":
 				//
 			case "cam":
-				time, err := datas.readFloatLE()
+				time, err := datas.ReadFloatLE()
 				fmt.Printf("time = %f\n", time)
-				xPosition, err := datas.readFloatLE()
+				xPosition, err := datas.ReadFloatLE()
 				fmt.Printf("xPosition = %f\n", xPosition)
-				yPosition, err := datas.readFloatLE()
+				yPosition, err := datas.ReadFloatLE()
 				fmt.Printf("yPosition = %f\n", yPosition)
-				zPosition, err := datas.readFloatLE()
+				zPosition, err := datas.ReadFloatLE()
 				fmt.Printf("zPosition = %f\n", zPosition)
-				xRotation, err := datas.readFloatLE()
+				xRotation, err := datas.ReadFloatLE()
 				fmt.Printf("xRotation = %f\n", xRotation)
-				yRotation, err := datas.readFloatLE()
+				yRotation, err := datas.ReadFloatLE()
 				fmt.Printf("yRotation = %f\n", yRotation)
-				zRotation, err := datas.readFloatLE()
+				zRotation, err := datas.ReadFloatLE()
 				fmt.Printf("zRotation = %f\n", zRotation)
-				fov, err := datas.readFloatLE()
+				fov, err := datas.ReadFloatLE()
 				fmt.Printf("fov = %f\n", fov)
 				if err != nil {
 					panic(err)
@@ -142,12 +133,4 @@ func main() {
 		log.Fatal("error starting http server::", err)
 		return
 	}
-}
-
-func SendRCON(ws *websocket.Conn, cmd string) {
-	command := []byte("exec")
-	command = append(command, nullstr)
-	command = append(command, []byte(cmd)...)
-	command = append(command, nullstr)
-	ws.WriteMessage(2, []uint8(command))
 }

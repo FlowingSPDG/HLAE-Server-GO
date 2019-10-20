@@ -9,17 +9,17 @@ import (
 	"encoding/binary"
 	"fmt"
 	//"log"
+	"github.com/gorilla/websocket"
 	"math/big"
 	//"net/http"
 	// "strconv"
-	//"github.com/gorilla/websocket"
 )
 
 var (
 	nullstr byte = []byte("\x00")[0]
 )
 
-func findDelim(buffer []byte, idx int) int { // byte?? 区切り文字の位置を返すfunc
+func FindDelim(buffer []byte, idx int) int { // byte?? 区切り文字の位置を返すfunc
 	delim := 0
 	for i := idx; i < len(buffer); i++ {
 		fmt.Printf("buffer[i] : %v\n", buffer[i])
@@ -35,14 +35,14 @@ func findDelim(buffer []byte, idx int) int { // byte?? 区切り文字の位置�
 
 // str, err := datas.buff.ReadString(nullstr)
 type BufferReader struct {
-	index int // current byte pos of delim
-	buff  bytes.Buffer
-	bytes []byte
+	Index int // current byte pos of delim
+	Buff  bytes.Buffer
+	Bytes []byte
 }
 
-func (b *BufferReader) readBigUInt64LE() (*big.Int, error) {
-	lo, err := b.readUInt32LE()
-	hi, err := b.readUInt32LE()
+func (b *BufferReader) ReadBigUInt64LE() (*big.Int, error) {
+	lo, err := b.ReadUInt32LE()
+	hi, err := b.ReadUInt32LE()
 	if err != nil {
 		return nil, err
 	}
@@ -52,76 +52,76 @@ func (b *BufferReader) readBigUInt64LE() (*big.Int, error) {
 	return n.Lsh(n, 32), nil
 }
 
-func (b *BufferReader) readUInt32LE() (uint32, error) {
+func (b *BufferReader) ReadUInt32LE() (uint32, error) {
 	var i uint32
-	buf := bytes.NewReader(b.buff.Bytes()[b.index:])
+	buf := bytes.NewReader(b.Buff.Bytes()[b.Index:])
 	if err := binary.Read(buf, binary.LittleEndian, &i); err != nil {
 		fmt.Println("binary.Read failed:", err)
 		return 0, err
 	}
-	b.index += 4
+	b.Index += 4
 	return i, nil
 }
 
-func (b *BufferReader) readInt32LE() int32 {
-	val, err := b.buff.ReadBytes(byte(b.index))
+func (b *BufferReader) ReadInt32LE() int32 {
+	val, err := b.Buff.ReadBytes(byte(b.Index))
 	if err != nil {
 		return -1
 	}
-	b.index += 4
+	b.Index += 4
 	return *(*int32)(unsafe.Pointer(&val))
 }
 
-func (b *BufferReader) readInt16LE() int16 {
-	val, err := b.buff.ReadBytes(byte(b.index))
+func (b *BufferReader) ReadInt16LE() int16 {
+	val, err := b.Buff.ReadBytes(byte(b.Index))
 	if err != nil {
 		return -1
 	}
-	b.index += 2
+	b.Index += 2
 	return *(*int16)(unsafe.Pointer(&val))
 }
 
-func (b *BufferReader) readInt8() int8 {
-	val, err := b.buff.ReadBytes(byte(b.index))
+func (b *BufferReader) ReadInt8() int8 {
+	val, err := b.Buff.ReadBytes(byte(b.Index))
 	if err != nil {
 		return -1
 	}
-	b.index++
+	b.Index++
 	return *(*int8)(unsafe.Pointer(&val))
 }
 
-func (b *BufferReader) readUInt8() uint8 {
-	val, err := b.buff.ReadBytes(byte(b.index))
+func (b *BufferReader) ReadUInt8() uint8 {
+	val, err := b.Buff.ReadBytes(byte(b.Index))
 	if err != nil {
 		return 0 // todo
 	}
-	b.index++
+	b.Index++
 
 	return *(*uint8)(unsafe.Pointer(&val))
 }
 
-func (b *BufferReader) readBoolean() bool {
-	return 0 != b.readUInt8()
+func (b *BufferReader) ReadBoolean() bool {
+	return 0 != b.ReadUInt8()
 }
 
-func (b *BufferReader) readFloatLE() (float32, error) {
-	bits := b.bytes[b.index : b.index+4]
+func (b *BufferReader) ReadFloatLE() (float32, error) {
+	bits := b.Bytes[b.Index : b.Index+4]
 	uint32le := binary.LittleEndian.Uint32(bits)
 	float := math.Float32frombits(uint32le)
-	b.index += 4
+	b.Index += 4
 	f := *(*float32)(unsafe.Pointer(&float))
 	return f, nil
 }
 
-func (b *BufferReader) readCString() (string, error) {
-	delim := findDelim(b.buff.Bytes(), b.index)
+func (b *BufferReader) ReadCString() (string, error) {
+	delim := FindDelim(b.Buff.Bytes(), b.Index)
 	var result string
-	for b.index < delim {
-		str, err := b.buff.ReadBytes(b.buff.Bytes()[delim])
+	for b.Index < delim {
+		str, err := b.Buff.ReadBytes(b.Buff.Bytes()[delim])
 		if err != nil {
 			return "", err
 		}
-		b.index = delim + 1
+		b.Index = delim + 1
 		result = *(*string)(unsafe.Pointer(&str))
 		result = strings.Trim(result, string(nullstr))
 		//fmt.Printf("b.bytes : %v\nindex : %d\n", b.buff.Bytes(), b.index)
@@ -130,12 +130,19 @@ func (b *BufferReader) readCString() (string, error) {
 	return "", nil
 }
 
-func (b *BufferReader) eof() bool {
-	fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.index, b.buff.Len())
-	if b.index >= b.buff.Len() {
+func (b *BufferReader) Eof() bool {
+	fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.Index, b.Buff.Len())
+	if b.Index >= b.Buff.Len() {
 		fmt.Println("EOF")
 		return true
 	}
 	return false
+}
 
+func SendRCON(ws *websocket.Conn, cmd string) {
+	command := []byte("exec")
+	command = append(command, nullstr)
+	command = append(command, []byte(cmd)...)
+	command = append(command, nullstr)
+	ws.WriteMessage(2, []uint8(command))
 }
