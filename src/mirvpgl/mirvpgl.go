@@ -53,6 +53,13 @@ func (b *BufferReader) ReadBigUInt64LE() (*big.Int, error) {
 }
 
 func (b *BufferReader) ReadUInt32LE() (uint32, error) {
+
+	bits := b.Bytes[b.Index : b.Index+4]
+	uint32le := binary.LittleEndian.Uint32(bits)
+	b.Index += 4
+	f := *(*uint32)(unsafe.Pointer(&uint32le))
+	return f, nil
+
 	var i uint32
 	buf := bytes.NewReader(b.Buff.Bytes()[b.Index:])
 	if err := binary.Read(buf, binary.LittleEndian, &i); err != nil {
@@ -91,12 +98,8 @@ func (b *BufferReader) ReadInt8() int8 {
 }
 
 func (b *BufferReader) ReadUInt8() uint8 {
-	val, err := b.Buff.ReadBytes(byte(b.Index))
-	if err != nil {
-		return 0 // todo
-	}
+	val := b.Bytes[b.Index : b.Index+1]
 	b.Index++
-
 	return *(*uint8)(unsafe.Pointer(&val))
 }
 
