@@ -1,13 +1,126 @@
 package main
 
 import (
+	"unsafe"
+	//"bufio"
+	"bytes"
+	//"encoding/binary"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	_ "strconv"
 
 	"github.com/gorilla/websocket"
 )
+
+func findDelim(buffer []byte, idx int) int { // byte??
+	delim := -1
+	for i := idx; i < len(buffer); i++ {
+		fmt.Printf("buffer[i] : %v\n", buffer[i])
+		if nullstr == buffer[i] {
+			delim = i
+			break
+		}
+	}
+	//return byte(delim)
+	fmt.Printf("Delim : %d\n", delim)
+	return delim
+}
+
+// str, err := datas.buff.ReadString(nullstr)
+type BufferReader struct {
+	index int
+	buff  bytes.Buffer
+	bytes []byte
+}
+
+func (b *BufferReader) readBigUInt64LE() *big.Int {
+	lo := b.readUInt32LE()
+	hi := b.readUInt32LE()
+	biglow := big.NewInt(int64(lo))
+	bighigh := big.NewInt(int64(hi))
+	n := biglow.Or(biglow, bighigh)
+	return n.Lsh(n, 32) // TODO
+}
+
+func (b *BufferReader) readUInt32LE() uint32 {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return 1 // todo
+	}
+	b.index += 4
+	return *(*uint32)(unsafe.Pointer(&val))
+}
+
+func (b *BufferReader) readInt32LE() int32 {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return -1
+	}
+	b.index += 4
+	return *(*int32)(unsafe.Pointer(&val))
+}
+
+func (b *BufferReader) readInt16LE() int16 {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return -1
+	}
+	b.index += 2
+	return *(*int16)(unsafe.Pointer(&val))
+}
+
+func (b *BufferReader) readInt8() int8 {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return -1
+	}
+	b.index += 1
+	return *(*int8)(unsafe.Pointer(&val))
+}
+
+func (b *BufferReader) readUInt8() uint8 {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return 0 // todo
+	}
+	b.index += 1
+	return *(*uint8)(unsafe.Pointer(&val))
+}
+
+func (b *BufferReader) readBoolean() bool {
+	return 0 != b.readUInt8()
+}
+
+func (b *BufferReader) readFloatLE() (float64, error) {
+	val, err := b.buff.ReadBytes(byte(b.index))
+	if err != nil {
+		return -1, err
+	}
+	return *(*float64)(unsafe.Pointer(&val)), nil
+}
+
+func (b *BufferReader) readCString() ([]string, error) {
+	delim := findDelim(b.bytes, b.index)
+	var result []string
+	for i := delim; b.index <= delim; i++ {
+		str, err := b.buff.ReadBytes(byte(b.index))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *(*string)(unsafe.Pointer(&str)))
+		/*if err != nil {
+			return "", err
+		}*/
+		b.index = delim + 1
+	}
+	return result, nil
+}
+
+func (b *BufferReader) eof() bool {
+	return b.index >= len(b.bytes)
+}
 
 // The message types are defined in RFC 6455, section 11.8.
 const (
@@ -32,6 +145,10 @@ const (
 	PongMessage = 10
 )
 
+var (
+	nullstr byte = []byte("\x00")[0]
+)
+
 // WebSocket サーバーにつなぎにいくクライアント
 var clients = make(map[*websocket.Conn]bool)
 
@@ -53,24 +170,33 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 	clients[websocket] = true
 
 	command := []byte("exec")
-	command = append(command, []byte("\x00")...)
+	command = append(command, nullstr)
 	command = append(command, []byte("echo hello from GOLANG")...)
-	command = append(command, []byte("\x00")...)
-	newStr := []uint8(command)
-	websocket.WriteMessage(2, newStr)
-	//ws.send(new Uint8Array(Buffer.from('exec\0'+data.trim()+'\0','utf8')),{binary: true});
+	command = append(command, nullstr)
+	websocket.WriteMessage(2, []uint8(command))
 
 	// メッセージ読み込み
-	datatype, data, err := websocket.ReadMessage()
+	_, data, err := websocket.ReadMessage()
 	if err != nil {
 		log.Printf("error occurred while reading message: %v", err)
 		delete(clients, websocket)
 	}
-	//datauint8 := []uint8(data)
-	datastr := string(data)
-	fmt.Println(datastr)
-	fmt.Println(datatype)
-	fmt.Println(data)
+	var datas = BufferReader{
+		index: 0,
+		bytes: data,
+	}
+	datas.buff.Write(data)
+	//delim := findDelim(data, datas.index)
+	cmd, err := datas.readCString()
+	ver := datas.readUInt32LE()
+	//str, err := datas.buff.ReadString(nullstr)
+	//str, _ := datas.readCString()
+	fmt.Printf("CMD : %s", cmd)     //
+	fmt.Printf("Version : %s", ver) //
+
+	//datastr := string(data)
+	//fmt.Println(datastr)
+	//fmt.Println(datatype)
 
 }
 
