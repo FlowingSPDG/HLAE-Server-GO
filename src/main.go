@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+	"strings"
 	"unsafe"
 	//"bufio"
 	"bytes"
@@ -14,11 +16,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func findDelim(buffer []byte, idx int) int { // byte??
+func findDelim(buffer []byte, idx int) int { // byte?? 区切り文字の位置を返すfunc
 	delim := 0
 	for i := idx; i < len(buffer); i++ {
 		fmt.Printf("buffer[i] : %v\n", buffer[i])
-		if nullstr == buffer[i] {
+		if 0 == buffer[i] {
 			delim = i
 			break
 		}
@@ -30,7 +32,7 @@ func findDelim(buffer []byte, idx int) int { // byte??
 
 // str, err := datas.buff.ReadString(nullstr)
 type BufferReader struct {
-	index int
+	index int // current byte pos of delim
 	buff  bytes.Buffer
 	bytes []byte
 }
@@ -49,9 +51,10 @@ func (b *BufferReader) readBigUInt64LE() (*big.Int, error) {
 
 func (b *BufferReader) readUInt32LE() (uint32, error) {
 	var i uint32
-	buf := bytes.NewReader(b.bytes[b.index:])
+	buf := bytes.NewReader(b.buff.Bytes()[b.index:])
 	if err := binary.Read(buf, binary.LittleEndian, &i); err != nil {
 		fmt.Println("binary.Read failed:", err)
+		return 0, err
 	}
 	b.index += 4
 	return i, nil
@@ -98,34 +101,41 @@ func (b *BufferReader) readBoolean() bool {
 	return 0 != b.readUInt8()
 }
 
-func (b *BufferReader) readFloatLE() (float64, error) {
-	val, err := b.buff.ReadBytes(byte(b.index))
-	if err != nil {
-		return -1, err
-	}
-	return *(*float64)(unsafe.Pointer(&val)), nil
+func (b *BufferReader) readFloatLE() (float32, error) {
+	bits := b.bytes[b.index : b.index+4]
+	uint32le := binary.LittleEndian.Uint32(bits)
+	float := math.Float32frombits(uint32le)
+	b.index += 4
+	f := *(*float32)(unsafe.Pointer(&float))
+	return f, nil
 }
 
-func (b *BufferReader) readCString() ([]string, error) {
-	delim := findDelim(b.bytes, b.index)
-	var result []string
-	for i := delim; b.index <= delim; i++ {
-		str, err := b.buff.ReadBytes(byte(b.index))
+func (b *BufferReader) readCString() (string, error) {
+	delim := findDelim(b.buff.Bytes(), b.index)
+	var result string
+	for b.index < delim {
+		str, err := b.buff.ReadBytes(b.buff.Bytes()[delim])
 		if err != nil {
-			return nil, err
-		}
-		result = append(result, *(*string)(unsafe.Pointer(&str)))
-		/*if err != nil {
 			return "", err
-		}*/
+		}
 		b.index = delim + 1
-		fmt.Printf("b.bytes : %v\nindex : %d\n", b.bytes, b.index)
+		result = *(*string)(unsafe.Pointer(&str))
+		result = strings.Trim(result, string(nullstr))
+		//fmt.Printf("b.bytes : %v\nindex : %d\n", b.buff.Bytes(), b.index)
+		return result, nil
 	}
-	return result, nil
+	//b.readCString()
+	return "", nil
 }
 
 func (b *BufferReader) eof() bool {
-	return b.index >= len(b.bytes)
+	fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.index, b.buff.Len())
+	if b.index >= b.buff.Len() {
+		fmt.Println("EOF")
+		return true
+	}
+	return false
+
 }
 
 // The message types are defined in RFC 6455, section 11.8.
@@ -171,52 +181,98 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("error upgrading GET request to a websocket::", err)
 	}
 	// websocket を閉じる
-	defer websocket.Close()
+	//defer websocket.Close()
 
 	clients[websocket] = true
 
-	command := []byte("exec")
-	command = append(command, nullstr)
-	command = append(command, []byte("echo hello from GOLANG")...)
-	command = append(command, nullstr)
-	websocket.WriteMessage(2, []uint8(command))
+	SendRCON(websocket, "echo HELLO FROM GOLANG!")
 
-	// メッセージ読み込み
-	_, data, err := websocket.ReadMessage()
-	if err != nil {
-		log.Printf("error occurred while reading message: %v", err)
-		delete(clients, websocket)
-	}
-	var datas = BufferReader{
-		index: 0,
-		bytes: data,
-	}
-	datas.buff.Write(data)
-	for !datas.eof() {
-		cmd, err := datas.readCString()
-		ver, err := datas.readUInt32LE()
+	for {
+		// メッセージ読み込み
+		_, data, err := websocket.ReadMessage()
 		if err != nil {
-			panic(err)
+			log.Printf("error occurred while reading message: %v", err)
+			delete(clients, websocket)
 		}
-
-		//str, err := datas.buff.ReadString(nullstr)
-		//str, _ := datas.readCString()
-		fmt.Printf("CMD : %s", cmd) //
-		fmt.Printf("Version : %d", ver)
-
-		//datastr := string(data)
-		//fmt.Println(datastr)
-		//fmt.Println(datatype)
+		var datas = &BufferReader{
+			index: 0,
+			bytes: data,
+		}
+		datas.buff.Write(data)
+		if !datas.eof() {
+			cmd, err := datas.readCString()
+			if err != nil {
+				panic(err)
+			}
+			/*if datas.eof() {
+				return
+			}*/
+			fmt.Printf("CMD : [%s]\n", cmd) //
+			switch cmd {
+			case "hello":
+				//
+			case "version":
+				version, err := datas.readUInt32LE()
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("VERSION : %d", version) //
+			case "dataStop":
+				//
+			case "dataStart":
+				//
+			case "levelInit":
+				mapname, err := datas.readCString()
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("map : %s", mapname) //
+				//
+			case "levelShutdown":
+				//
+			case "cam":
+				time, err := datas.readFloatLE()
+				fmt.Printf("time = %f\n", time)
+				xPosition, err := datas.readFloatLE()
+				fmt.Printf("xPosition = %f\n", xPosition)
+				yPosition, err := datas.readFloatLE()
+				fmt.Printf("yPosition = %f\n", yPosition)
+				zPosition, err := datas.readFloatLE()
+				fmt.Printf("zPosition = %f\n", zPosition)
+				xRotation, err := datas.readFloatLE()
+				fmt.Printf("xRotation = %f\n", xRotation)
+				yRotation, err := datas.readFloatLE()
+				fmt.Printf("yRotation = %f\n", yRotation)
+				zRotation, err := datas.readFloatLE()
+				fmt.Printf("zRotation = %f\n", zRotation)
+				fov, err := datas.readFloatLE()
+				fmt.Printf("fov = %f\n", fov)
+				if err != nil {
+					panic(err)
+				}
+				//
+			case "gameEvent":
+				//TODO. JSON
+			default:
+				fmt.Println("Unknown message")
+			}
+		}
 	}
 }
 
 func main() {
-	// localhost:8080 でアクセスした時に index.html を読み込む
-
 	http.HandleFunc("/mirv", HandleClients)
 	err := http.ListenAndServe(":63337", nil)
 	if err != nil {
 		log.Fatal("error starting http server::", err)
 		return
 	}
+}
+
+func SendRCON(ws *websocket.Conn, cmd string) {
+	command := []byte("exec")
+	command = append(command, nullstr)
+	command = append(command, []byte(cmd)...)
+	command = append(command, nullstr)
+	ws.WriteMessage(2, []uint8(command))
 }
