@@ -51,14 +51,24 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 
 	clients[websocket] = true
 
-	mirvpgl.SendRCON(websocket, "echo HELLO FROM GOLANG!")
+	err = mirvpgl.SendRCON(websocket, "echo HELLO FROM GOLANG!")
+	if err != nil {
+		panic(err)
+	}
 
 	for {
 		// メッセージ読み込み
-		_, data, err := websocket.ReadMessage()
+		datatype, data, err := websocket.ReadMessage()
 		if err != nil {
 			log.Printf("error occurred while reading message: %v", err)
+			websocket.Close()
 			delete(clients, websocket)
+			break
+		}
+		if datatype == CloseMessage {
+			log.Println("CloseMessage received")
+			delete(clients, websocket)
+			break
 		}
 		var datas = &mirvpgl.BufferReader{
 			Index: 0,
@@ -70,9 +80,6 @@ func HandleClients(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			/*if datas.eof() {
-				return
-			}*/
 			fmt.Printf("CMD : [%s]\n", cmd) //
 			switch cmd {
 			case "hello":

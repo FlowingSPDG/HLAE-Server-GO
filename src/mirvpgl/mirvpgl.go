@@ -134,7 +134,7 @@ func (b *BufferReader) ReadCString() (string, error) {
 }
 
 func (b *BufferReader) Eof() bool {
-	fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.Index, b.Buff.Len())
+	fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.Index, len(b.Bytes))
 	if b.Index >= b.Buff.Len() {
 		fmt.Println("EOF")
 		return true
@@ -142,10 +142,14 @@ func (b *BufferReader) Eof() bool {
 	return false
 }
 
-func SendRCON(ws *websocket.Conn, cmd string) {
+func SendRCON(ws *websocket.Conn, cmd string) error {
 	command := []byte("exec")
 	command = append(command, nullstr)
 	command = append(command, []byte(cmd)...)
 	command = append(command, nullstr)
-	ws.WriteMessage(2, []uint8(command))
+	err := ws.WriteMessage(2, []uint8(command))
+	if err != nil {
+		return err
+	}
+	return nil
 }
