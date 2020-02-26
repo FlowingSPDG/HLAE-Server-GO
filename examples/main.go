@@ -33,6 +33,9 @@ func main() {
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
 	go hlaeserver.Start(":65535", "/mirv")
+	// mirv_pgl url "ws://localhost:65535/mirv"
+	// mirv_pgl start
+	// mirv_pgl datastart
 	for {
 		cmd := prompt.Input("CSGO >>> ", completer)
 		hlaeserver.SendRCON(cmd)
