@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"github.com/FlowingSPDG/HLAE-Server-GO"
 	"github.com/c-bata/go-prompt"
+	"log"
 )
 
 var (
@@ -16,12 +16,12 @@ func init() {
 
 // ExampleHandler for HLAE Server
 func ExampleHandler(cmd string) {
-	fmt.Printf("Received %s\n", cmd)
+	log.Printf("Received %s\n", cmd)
 }
 
 // ExampleCamHandler for cam datas
 func ExampleCamHandler(cam *mirvpgl.CamData) {
-	fmt.Printf("Received cam data %v\n", cam)
+	log.Printf("Received cam data %v\n", cam)
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
