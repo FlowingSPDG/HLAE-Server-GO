@@ -142,7 +142,7 @@ func (b *BufferReader) ReadCString() (string, error) {
 func (b *BufferReader) Eof() bool {
 	// fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.Index, len(b.Bytes))
 	if b.Index >= b.Buff.Len() {
-		fmt.Println("EOF")
+		// fmt.Println("EOF")
 		return true
 	}
 	return false

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"github.com/FlowingSPDG/HLAE-Server-GO"
 	"github.com/c-bata/go-prompt"
+	"log"
 )
 
 var (
@@ -16,12 +16,12 @@ func init() {
 
 // ExampleHandler for HLAE Server
 func ExampleHandler(cmd string) {
-	fmt.Printf("Received %s\n", cmd)
+	log.Printf("Received %s\n", cmd)
 }
 
 // ExampleCamHandler for cam datas
 func ExampleCamHandler(cam *mirvpgl.CamData) {
-	fmt.Printf("Received cam data %v\n", cam)
+	log.Printf("Received cam data %v\n", cam)
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
@@ -33,6 +33,9 @@ func main() {
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
 	go hlaeserver.Start(":65535", "/mirv")
+	// mirv_pgl url "ws://localhost:65535/mirv"
+	// mirv_pgl start
+	// mirv_pgl datastart
 	for {
 		cmd := prompt.Input("CSGO >>> ", completer)
 		hlaeserver.SendRCON(cmd)
