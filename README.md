@@ -18,7 +18,7 @@ see [examples](https://github.com/FlowingSPDG/HLAE-Server-GO/blob/master/example
 - 2,Launch CSGO with HLAE.
 - 3,type following commands below:  
 ```
-mirv_pgl url "ws://localhost:65535/mirv;"
+mirv_pgl url "ws://localhost:65535/mirv";
 mirv_pgl start;
 mirv_pgl datastart;
 ```
