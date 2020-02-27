@@ -191,8 +191,8 @@ func (h *HLAEServer) RegisterHandler(handler func(string)) {
 
 // RegisterCamHandler to handle each requests
 func (h *HLAEServer) RegisterCamHandler(handler func(*CamData)) {
-	if h.handlers == nil {
-		h.handlers = make([]func(string), 0)
+	if h.camhandlers == nil {
+		h.camhandlers = make([]func(*CamData), 0)
 	}
 	h.camhandlers = append(h.camhandlers, handler)
 	log.Printf("Registered Camera handler. Currently %d handlers are active\n", len(h.handlers))
