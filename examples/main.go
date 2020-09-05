@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/FlowingSPDG/HLAE-Server-GO"
-	"github.com/c-bata/go-prompt"
 	"log"
+
+	mirvpgl "github.com/FlowingSPDG/HLAE-Server-GO"
+	"github.com/c-bata/go-prompt"
 )
 
 var (

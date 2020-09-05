@@ -4,19 +4,21 @@ import (
 	"math"
 	"strings"
 	"unsafe"
+
 	//"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"math/big"
 	"net/http"
+
+	"github.com/gorilla/websocket"
 	// "strconv"
 )
 
 var (
-	nullstr []byte = []byte("\x00")
+	nullstr = byte('\x00')
 
 	// WebSocket 更新用
 	upgrader = websocket.Upgrader{}
@@ -148,6 +150,7 @@ func (b *BufferReader) Eof() bool {
 	return false
 }
 
+// CamData Camera datas
 type CamData struct {
 	Time float32
 	Fov  float32
@@ -159,6 +162,7 @@ type CamData struct {
 	Zrot float32
 }
 
+// HLAEServer Main struct
 type HLAEServer struct {
 	ws          websocket.Conn
 	handlers    []func(string)
@@ -167,13 +171,13 @@ type HLAEServer struct {
 
 // SendRCON command
 func (h *HLAEServer) SendRCON(cmd string) error {
-	length := len("exec") + len(nullstr) + len(cmd) + len(nullstr)
+	length := len("exec") + 1 + len(cmd) + 1
 	command := make([]byte, 0, length)
 	command = append(command, []byte("exec")...)
-	command = append(command, nullstr...)
+	command = append(command, nullstr)
 	command = append(command, []byte(cmd)...)
-	command = append(command, nullstr...)
-	err := h.ws.WriteMessage(2, []uint8(command))
+	command = append(command, nullstr)
+	err := h.ws.WriteMessage(2, []byte(command))
 	if err != nil {
 		return err
 	}
