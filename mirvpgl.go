@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -92,6 +93,16 @@ func New(host, path string) (*HLAEServer, error) {
 			srv.handleCamRequest(camData)
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
+			ev := EventDescription{}
+			if err := ParseEvent(buf, &ev); err != nil {
+				fmt.Println("Failed to parse event descriptions...")
+				return
+			}
+
+			if ev.EventID == 0 {
+				// TODO...
+			}
+			log.Printf("EVENT : %v\n", ev)
 			//TODO. JSON
 			// srv.handleRequest(cmd)
 		default:
