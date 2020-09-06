@@ -102,7 +102,7 @@ func New(host, path string) (*HLAEServer, error) {
 	srv.melody.HandleConnect(func(s *melody.Session) {
 		fmt.Printf("HLAE WebSocket client connected %v\n", s)
 		srv.sessions = append(srv.sessions, s)
-		s.WriteBinary(commandToByteSlice("echo Hello World from Go!"))
+		// s.WriteBinary(commandToByteSlice("echo Hello World from Go!"))
 	})
 	srv.melody.HandleDisconnect(func(s *melody.Session) {
 		fmt.Printf("HLAE WebSocket client disconnected %v\n", s)
@@ -149,13 +149,26 @@ func commandToByteSlice(cmd string) []byte {
 	return command
 }
 
-// SendRCON command
-func (h *HLAEServer) SendRCON(cmd string) error {
+// BroadcastRCON broadcast command
+func (h *HLAEServer) BroadcastRCON(cmd string) error {
 	command := commandToByteSlice(cmd)
 	if err := h.melody.BroadcastBinary(command); err != nil {
 		return err
 	}
 	return nil
+}
+
+// SendRCON Send RCON to specific client
+func (h *HLAEServer) SendRCON(k int, cmd string) error {
+	if len(h.sessions)-1 < k {
+		command := commandToByteSlice(cmd)
+		if err := h.melody.BroadcastBinary(command); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return fmt.Errorf("Out of index slice")
 }
 
 // RegisterHandler to handle each requests
