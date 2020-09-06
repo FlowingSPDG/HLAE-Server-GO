@@ -1,184 +1,163 @@
 package mirvpgl
 
 import (
-	"math"
-	"strings"
-	"unsafe"
 
 	//"bufio"
+
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
-	"math/big"
-	"net/http"
 
-	"github.com/gorilla/websocket"
+	"github.com/gin-gonic/gin"
+	"gopkg.in/olahol/melody.v1"
 	// "strconv"
 )
 
 var (
 	nullstr = byte('\x00')
-
-	// WebSocket 更新用
-	upgrader = websocket.Upgrader{}
-
-	// WebSocket サーバーにつなぎにいくクライアント
-	clients = make(map[*websocket.Conn]bool)
 )
-
-func FindDelim(buffer []byte, idx int) int { // byte?? 区切り文字の位置を返すfunc
-	delim := 0
-	for i := idx; i < len(buffer); i++ {
-		// fmt.Printf("buffer[i] : %v\n", buffer[i])
-		if 0 == buffer[i] {
-			delim = i
-			break
-		}
-	}
-	// return byte(delim)
-	// fmt.Printf("Delim : %d\n", delim)
-	return delim
-}
-
-// str, err := datas.buff.ReadString(nullstr)
-type BufferReader struct {
-	Index int // current byte pos of delim
-	Buff  bytes.Buffer
-	Bytes []byte
-}
-
-func (b *BufferReader) ReadBigUInt64LE() (*big.Int, error) {
-	lo, err := b.ReadUInt32LE()
-	hi, err := b.ReadUInt32LE()
-	if err != nil {
-		return nil, err
-	}
-	biglow := big.NewInt(int64(lo))
-	bighigh := big.NewInt(int64(hi))
-	n := biglow.Or(biglow, bighigh)
-	return n.Lsh(n, 32), nil
-}
-
-func (b *BufferReader) ReadUInt32LE() (uint32, error) {
-
-	bits := b.Bytes[b.Index : b.Index+4]
-	uint32le := binary.LittleEndian.Uint32(bits)
-	b.Index += 4
-	f := *(*uint32)(unsafe.Pointer(&uint32le))
-	return f, nil
-
-	var i uint32
-	buf := bytes.NewReader(b.Buff.Bytes()[b.Index:])
-	if err := binary.Read(buf, binary.LittleEndian, &i); err != nil {
-		fmt.Println("binary.Read failed:", err)
-		return 0, err
-	}
-	b.Index += 4
-	return i, nil
-}
-
-func (b *BufferReader) ReadInt32LE() int32 {
-	val, err := b.Buff.ReadBytes(byte(b.Index))
-	if err != nil {
-		return -1
-	}
-	b.Index += 4
-	return *(*int32)(unsafe.Pointer(&val))
-}
-
-func (b *BufferReader) ReadInt16LE() int16 {
-	val, err := b.Buff.ReadBytes(byte(b.Index))
-	if err != nil {
-		return -1
-	}
-	b.Index += 2
-	return *(*int16)(unsafe.Pointer(&val))
-}
-
-func (b *BufferReader) ReadInt8() int8 {
-	val, err := b.Buff.ReadBytes(byte(b.Index))
-	if err != nil {
-		return -1
-	}
-	b.Index++
-	return *(*int8)(unsafe.Pointer(&val))
-}
-
-func (b *BufferReader) ReadUInt8() uint8 {
-	val := b.Bytes[b.Index : b.Index+1]
-	b.Index++
-	return *(*uint8)(unsafe.Pointer(&val))
-}
-
-func (b *BufferReader) ReadBoolean() bool {
-	return 0 != b.ReadUInt8()
-}
-
-func (b *BufferReader) ReadFloatLE() (float32, error) {
-	bits := b.Bytes[b.Index : b.Index+4]
-	uint32le := binary.LittleEndian.Uint32(bits)
-	float := math.Float32frombits(uint32le)
-	b.Index += 4
-	f := *(*float32)(unsafe.Pointer(&float))
-	return f, nil
-}
-
-func (b *BufferReader) ReadCString() (string, error) {
-	delim := FindDelim(b.Buff.Bytes(), b.Index)
-	var result string
-	for b.Index < delim {
-		str, err := b.Buff.ReadBytes(b.Buff.Bytes()[delim])
-		if err != nil {
-			return "", err
-		}
-		b.Index = delim + 1
-		result = *(*string)(unsafe.Pointer(&str))
-		result = strings.Trim(result, string(nullstr))
-		//fmt.Printf("b.bytes : %v\nindex : %d\n", b.buff.Bytes(), b.index)
-		return result, nil
-	}
-	return "", nil
-}
-
-func (b *BufferReader) Eof() bool {
-	// fmt.Printf("\nb.index : %d\nb.bytes len : %d\n", b.Index, len(b.Bytes))
-	if b.Index >= b.Buff.Len() {
-		// fmt.Println("EOF")
-		return true
-	}
-	return false
-}
 
 // CamData Camera datas
 type CamData struct {
 	Time float32
-	Fov  float32
 	XPos float32
 	YPos float32
 	ZPos float32
 	XRot float32
 	YRot float32
 	Zrot float32
+	Fov  float32
+}
+
+// New Get new instance of HLAEServer
+func New(host, path string) (*HLAEServer, error) {
+	if host == "" || path == "" {
+		return nil, fmt.Errorf("Empty path or host")
+	}
+	srv := &HLAEServer{
+		host:     host,
+		path:     path,
+		melody:   nil,
+		sessions: make([]*melody.Session, 0),
+		engine:   nil,
+	}
+	m := melody.New()
+	m.HandleMessageBinary(func(s *melody.Session, data []byte) {
+		// TODO
+		buf := bytes.NewBuffer(data)
+		cmd, err := buf.ReadString(nullstr)
+		if err != nil {
+			if err == io.EOF {
+				log.Println("EOF.")
+			} else {
+				log.Println("Failed to read string from buffer : ", err)
+			}
+			return
+		}
+		// TODO with l
+		switch cmd {
+		case "hello":
+			log.Println("HLAE Client connection established...")
+		case "version":
+			var version uint32
+			if err := binary.Read(buf, binary.LittleEndian, &version); err != nil {
+				log.Println("Failed to read version message buffer : ", err)
+				return
+			}
+			log.Println("Current Version :", version)
+			// h.handleRequest(cmd)
+		case "dataStop":
+			// h.handleRequest(cmd)
+		case "dataStart":
+			// h.handleRequest(cmd)
+		case "levelInit":
+			mapname, err := buf.ReadString(nullstr)
+			if err != nil {
+				log.Println("Failed to read levelInit message buffer : ", err)
+				return
+			}
+			log.Printf("map : %s", mapname) //
+			// h.handleRequest(cmd)
+		case "levelShutdown":
+			// h.handleRequest(cmd)
+		case "cam":
+			camData := CamData{}
+
+			if err := binary.Read(buf, binary.LittleEndian, &camData); err != nil {
+				log.Println("Failed to read cam message buffer : ", err)
+				return
+			}
+			log.Printf("CamData : %v\n", camData)
+			// h.handleCamRequest(camdata)
+			//
+		case "gameEvent":
+			//TODO. JSON
+			// h.handleRequest(cmd)
+		default:
+			fmt.Println("Unknown message")
+			// h.handleRequest(cmd)
+		}
+	})
+	m.HandleConnect(func(s *melody.Session) {
+		srv.sessions = append(srv.sessions, s)
+		s.WriteBinary(commandToByteSlice("echo Hello World from Go!"))
+	})
+	m.HandleDisconnect(func(s *melody.Session) {
+		// Remove session from session slice
+		for k, v := range srv.sessions {
+			if v == s {
+				newsession := make([]*melody.Session, len(srv.sessions)-1)
+				newsession = append(srv.sessions[:k], srv.sessions[k+1:]...)
+				copy(srv.sessions, newsession)
+				return
+			}
+		}
+	})
+	srv.melody = m
+
+	r := gin.Default()
+	r.GET(path, func(c *gin.Context) {
+		m.HandleRequest(c.Writer, c.Request)
+	})
+
+	srv.engine = r
+	return &HLAEServer{
+		host:   host,
+		path:   path,
+		melody: m,
+		engine: r,
+	}, nil
 }
 
 // HLAEServer Main struct
 type HLAEServer struct {
-	ws          websocket.Conn
+	host     string
+	path     string
+	melody   *melody.Melody
+	sessions []*melody.Session
+	engine   *gin.Engine
+
 	handlers    []func(string)
 	camhandlers []func(*CamData)
 }
 
-// SendRCON command
-func (h *HLAEServer) SendRCON(cmd string) error {
-	length := len("exec") + 1 + len(cmd) + 1
+func commandToByteSlice(cmd string) []byte {
+	length := len("exec") + 1 + len(cmd) + 1 // "exec" + (nullstr) + command + (nullstr)
 	command := make([]byte, 0, length)
 	command = append(command, []byte("exec")...)
 	command = append(command, nullstr)
 	command = append(command, []byte(cmd)...)
 	command = append(command, nullstr)
-	err := h.ws.WriteMessage(2, []byte(command))
-	if err != nil {
+
+	return command
+}
+
+// SendRCON command
+func (h *HLAEServer) SendRCON(cmd string) error {
+	command := commandToByteSlice(cmd)
+	if err := h.melody.BroadcastBinary(command); err != nil {
 		return err
 	}
 	return nil
@@ -217,120 +196,9 @@ func (h *HLAEServer) handleCamRequest(cam *CamData) {
 }
 
 // Start listening
-func (h *HLAEServer) Start(host, path string) {
-	log.Printf("Listening on %s%s", host, path)
-	http.HandleFunc(path, h.handleClients)
-	err := http.ListenAndServe(host, nil)
-	if err != nil {
+func (h *HLAEServer) Start() {
+	log.Printf("Listening on %s%s", h.host, h.path)
+	if err := h.engine.Run(h.host); err != nil {
 		panic(err)
-	}
-}
-
-// クライアントのハンドラ
-func (h *HLAEServer) handleClients(w http.ResponseWriter, r *http.Request) {
-	// websocket の状態を更新
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatal("error upgrading GET request to a websocket::", err)
-	}
-	// websocket を閉じる
-	defer ws.Close()
-
-	clients[ws] = true
-	h.ws = *ws
-
-	err = h.SendRCON("echo HELLO FROM GOLANG!")
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		// メッセージ読み込み
-		datatype, data, err := ws.ReadMessage()
-		if err != nil {
-			log.Printf("error occurred while reading message: %v", err)
-			ws.Close()
-			delete(clients, ws)
-			break
-		}
-		if datatype == websocket.CloseMessage {
-			log.Println("CloseMessage received")
-			delete(clients, ws)
-			break
-		}
-		var datas = &BufferReader{
-			Index: 0,
-			Bytes: data,
-		}
-		datas.Buff.Write(data)
-		if !datas.Eof() {
-			cmd, err := datas.ReadCString()
-			if err != nil {
-				panic(err)
-			}
-			// fmt.Printf("CMD : [%s]\n", cmd)
-			switch cmd {
-			case "hello":
-				h.handleRequest(cmd)
-			case "version":
-				version, err := datas.ReadUInt32LE()
-				if err != nil {
-					panic(err)
-				}
-				fmt.Printf("VERSION : %d", version)
-				h.handleRequest(cmd)
-			case "dataStop":
-				h.handleRequest(cmd)
-			case "dataStart":
-				h.handleRequest(cmd)
-			case "levelInit":
-				mapname, err := datas.ReadCString()
-				if err != nil {
-					panic(err)
-				}
-				fmt.Printf("map : %s", mapname) //
-				h.handleRequest(cmd)
-			case "levelShutdown":
-				h.handleRequest(cmd)
-			case "cam":
-				time, err := datas.ReadFloatLE()
-				xPosition, err := datas.ReadFloatLE()
-				yPosition, err := datas.ReadFloatLE()
-				zPosition, err := datas.ReadFloatLE()
-				xRotation, err := datas.ReadFloatLE()
-				yRotation, err := datas.ReadFloatLE()
-				zRotation, err := datas.ReadFloatLE()
-				fov, err := datas.ReadFloatLE()
-				if err != nil {
-					panic(err)
-				}
-				// fmt.Printf("time = %f\n", time)
-				// fmt.Printf("xPosition = %f\n", xPosition)
-				// fmt.Printf("yPosition = %f\n", yPosition)
-				// fmt.Printf("zPosition = %f\n", zPosition)
-				// fmt.Printf("xRotation = %f\n", xRotation)
-				// fmt.Printf("yRotation = %f\n", yRotation)
-				// fmt.Printf("zRotation = %f\n", zRotation)
-				// fmt.Printf("fov = %f\n", fov)
-				cam := &CamData{
-					XPos: xPosition,
-					YPos: yPosition,
-					ZPos: zPosition,
-					XRot: xRotation,
-					YRot: yRotation,
-					Zrot: zRotation,
-					Time: time,
-					Fov:  fov,
-				}
-				h.handleCamRequest(cam)
-				//
-			case "gameEvent":
-				//TODO. JSON
-				h.handleRequest(cmd)
-			default:
-				fmt.Println("Unknown message")
-				h.handleRequest(cmd)
-			}
-		}
 	}
 }

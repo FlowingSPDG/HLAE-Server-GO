@@ -8,11 +8,15 @@ import (
 )
 
 var (
-	hlaeserver = &mirvpgl.HLAEServer{}
+	hlaeserver *mirvpgl.HLAEServer
 )
 
 func init() {
-	hlaeserver = &mirvpgl.HLAEServer{}
+	var err error
+	hlaeserver, err = mirvpgl.New(":65535", "/mirv")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ExampleHandler for HLAE Server
@@ -33,12 +37,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 func main() {
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
-	go hlaeserver.Start(":65535", "/mirv")
+	go hlaeserver.Start()
+	// NOTE : enclose ws URL with double quotes...
 	// mirv_pgl url "ws://localhost:65535/mirv"
 	// mirv_pgl start
 	// mirv_pgl datastart
 	for {
-		cmd := prompt.Input("CSGO >>> ", completer)
+		cmd := prompt.Input("HLAE >>> ", completer)
 		hlaeserver.SendRCON(cmd)
 	}
 }
