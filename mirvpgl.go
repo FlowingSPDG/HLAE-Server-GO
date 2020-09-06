@@ -56,6 +56,7 @@ func New(host, path string) (*HLAEServer, error) {
 		switch cmd {
 		case "hello":
 			fmt.Println("HLAE Client connection established...")
+			srv.handleRequest(cmd)
 		case "version":
 			var version uint32
 			if err := binary.Read(buf, binary.LittleEndian, &version); err != nil {
@@ -63,41 +64,39 @@ func New(host, path string) (*HLAEServer, error) {
 				return
 			}
 			fmt.Println("Current Version :", version)
-			// h.handleRequest(cmd)
+			// srv.handleRequest(cmd) // Add version data
 		case "dataStop":
 			fmt.Println("HLAE Client stopped sending data...")
-			// h.handleRequest(cmd)
+			srv.handleRequest(cmd)
 		case "dataStart":
 			fmt.Println("HLAE Client started sending data...")
-			// h.handleRequest(cmd)
+			srv.handleRequest(cmd)
 		case "levelInit":
 			mapname, err := buf.ReadString(nullstr)
 			if err != nil {
 				fmt.Println("Failed to read levelInit message buffer : ", err)
 				return
 			}
-			fmt.Printf("map : %s", mapname) //
-			// h.handleRequest(cmd)
+			fmt.Printf("map : %s", mapname)
+			// srv.handleRequest(cmd) // Add mapname info...
 		case "levelShutdown":
 			fmt.Println("Received levelShutdown...")
-			// h.handleRequest(cmd)
+			srv.handleRequest(cmd)
 		case "cam":
-			camData := CamData{}
+			camData := &CamData{}
 
-			if err := binary.Read(buf, binary.LittleEndian, &camData); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, camData); err != nil {
 				fmt.Println("Failed to read cam message buffer : ", err)
 				return
 			}
-			fmt.Printf("CamData : %v\n", camData)
-			// h.handleCamRequest(camdata)
-			//
+			srv.handleCamRequest(camData)
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
 			//TODO. JSON
-			// h.handleRequest(cmd)
+			// srv.handleRequest(cmd)
 		default:
 			fmt.Printf("Unknown message:[%s]\n", cmd)
-			// h.handleRequest(cmd)
+			srv.handleRequest(cmd)
 		}
 	})
 	srv.melody.HandleConnect(func(s *melody.Session) {

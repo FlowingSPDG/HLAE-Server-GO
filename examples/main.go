@@ -1,32 +1,20 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
 	mirvpgl "github.com/FlowingSPDG/HLAE-Server-GO"
 	"github.com/c-bata/go-prompt"
 )
 
-var (
-	hlaeserver *mirvpgl.HLAEServer
-)
-
-func init() {
-	var err error
-	hlaeserver, err = mirvpgl.New(":65535", "/mirv")
-	if err != nil {
-		panic(err)
-	}
-}
-
 // ExampleHandler for HLAE Server
 func ExampleHandler(cmd string) {
-	log.Printf("Received %s\n", cmd)
+	fmt.Printf("Received %s\n", cmd)
 }
 
 // ExampleCamHandler for cam datas
 func ExampleCamHandler(cam *mirvpgl.CamData) {
-	log.Printf("Received cam data %v\n", cam)
+	fmt.Printf("Received cam data %v\n", cam)
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
@@ -35,6 +23,10 @@ func completer(in prompt.Document) []prompt.Suggest {
 }
 
 func main() {
+	hlaeserver, err := mirvpgl.New(":65535", "/mirv")
+	if err != nil {
+		panic(err)
+	}
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
 	go func() {
