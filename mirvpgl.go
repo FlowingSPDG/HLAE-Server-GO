@@ -1,18 +1,14 @@
 package mirvpgl
 
 import (
-
-	//"bufio"
-
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/olahol/melody.v1"
-	// "strconv"
 )
 
 var (
@@ -43,68 +39,74 @@ func New(host, path string) (*HLAEServer, error) {
 		sessions: make([]*melody.Session, 0),
 		engine:   nil,
 	}
-	m := melody.New()
-	m.HandleMessageBinary(func(s *melody.Session, data []byte) {
-		// TODO
+	srv.melody = melody.New()
+	srv.melody.HandleMessageBinary(func(s *melody.Session, data []byte) {
 		buf := bytes.NewBuffer(data)
 		cmd, err := buf.ReadString(nullstr)
 		if err != nil {
 			if err == io.EOF {
-				log.Println("EOF.")
+				fmt.Println("EOF.")
 			} else {
-				log.Println("Failed to read string from buffer : ", err)
+				fmt.Println("Failed to read string from buffer : ", err)
 			}
 			return
 		}
-		// TODO with l
+		cmd = strings.ReplaceAll(cmd, string(nullstr), "")
+		fmt.Println("Received cmd:", cmd)
 		switch cmd {
 		case "hello":
-			log.Println("HLAE Client connection established...")
+			fmt.Println("HLAE Client connection established...")
 		case "version":
 			var version uint32
 			if err := binary.Read(buf, binary.LittleEndian, &version); err != nil {
-				log.Println("Failed to read version message buffer : ", err)
+				fmt.Println("Failed to read version message buffer : ", err)
 				return
 			}
-			log.Println("Current Version :", version)
+			fmt.Println("Current Version :", version)
 			// h.handleRequest(cmd)
 		case "dataStop":
+			fmt.Println("HLAE Client stopped sending data...")
 			// h.handleRequest(cmd)
 		case "dataStart":
+			fmt.Println("HLAE Client started sending data...")
 			// h.handleRequest(cmd)
 		case "levelInit":
 			mapname, err := buf.ReadString(nullstr)
 			if err != nil {
-				log.Println("Failed to read levelInit message buffer : ", err)
+				fmt.Println("Failed to read levelInit message buffer : ", err)
 				return
 			}
-			log.Printf("map : %s", mapname) //
+			fmt.Printf("map : %s", mapname) //
 			// h.handleRequest(cmd)
 		case "levelShutdown":
+			fmt.Println("Received levelShutdown...")
 			// h.handleRequest(cmd)
 		case "cam":
 			camData := CamData{}
 
 			if err := binary.Read(buf, binary.LittleEndian, &camData); err != nil {
-				log.Println("Failed to read cam message buffer : ", err)
+				fmt.Println("Failed to read cam message buffer : ", err)
 				return
 			}
-			log.Printf("CamData : %v\n", camData)
+			fmt.Printf("CamData : %v\n", camData)
 			// h.handleCamRequest(camdata)
 			//
 		case "gameEvent":
+			fmt.Println("Received gameEvent data...")
 			//TODO. JSON
 			// h.handleRequest(cmd)
 		default:
-			fmt.Println("Unknown message")
+			fmt.Printf("Unknown message:[%s]\n", cmd)
 			// h.handleRequest(cmd)
 		}
 	})
-	m.HandleConnect(func(s *melody.Session) {
+	srv.melody.HandleConnect(func(s *melody.Session) {
+		fmt.Printf("HLAE WebSocket client connected %v\n", s)
 		srv.sessions = append(srv.sessions, s)
 		s.WriteBinary(commandToByteSlice("echo Hello World from Go!"))
 	})
-	m.HandleDisconnect(func(s *melody.Session) {
+	srv.melody.HandleDisconnect(func(s *melody.Session) {
+		fmt.Printf("HLAE WebSocket client disconnected %v\n", s)
 		// Remove session from session slice
 		for k, v := range srv.sessions {
 			if v == s {
@@ -115,20 +117,14 @@ func New(host, path string) (*HLAEServer, error) {
 			}
 		}
 	})
-	srv.melody = m
 
-	r := gin.Default()
-	r.GET(path, func(c *gin.Context) {
-		m.HandleRequest(c.Writer, c.Request)
+	gin.SetMode(gin.ReleaseMode)
+	srv.engine = gin.Default()
+	srv.engine.GET(path, func(c *gin.Context) {
+		srv.melody.HandleRequest(c.Writer, c.Request)
 	})
 
-	srv.engine = r
-	return &HLAEServer{
-		host:   host,
-		path:   path,
-		melody: m,
-		engine: r,
-	}, nil
+	return srv, nil
 }
 
 // HLAEServer Main struct
@@ -169,7 +165,7 @@ func (h *HLAEServer) RegisterHandler(handler func(string)) {
 		h.handlers = make([]func(string), 0)
 	}
 	h.handlers = append(h.handlers, handler)
-	log.Printf("Registered handler. Currently %d handlers are active\n", len(h.handlers))
+	fmt.Printf("Registered handler. Currently %d handlers are active\n", len(h.handlers))
 }
 
 // RegisterCamHandler to handle each requests
@@ -178,27 +174,25 @@ func (h *HLAEServer) RegisterCamHandler(handler func(*CamData)) {
 		h.camhandlers = make([]func(*CamData), 0)
 	}
 	h.camhandlers = append(h.camhandlers, handler)
-	log.Printf("Registered Camera handler. Currently %d handlers are active\n", len(h.handlers))
+	fmt.Printf("Registered Camera handler. Currently %d handlers are active\n", len(h.handlers))
 }
 
 func (h *HLAEServer) handleRequest(cmd string) {
-	log.Printf("Sending handler request for %d clients...\n", len(h.handlers))
+	fmt.Printf("Sending handler request for %d clients...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.handlers[i](cmd)
 	}
 }
 
 func (h *HLAEServer) handleCamRequest(cam *CamData) {
-	log.Printf("Sending camera handler request for %d clients...\n", len(h.handlers))
+	fmt.Printf("Sending camera handler request for %d clients...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.camhandlers[i](cam)
 	}
 }
 
 // Start listening
-func (h *HLAEServer) Start() {
-	log.Printf("Listening on %s%s", h.host, h.path)
-	if err := h.engine.Run(h.host); err != nil {
-		panic(err)
-	}
+func (h *HLAEServer) Start() error {
+	// fmt.Printf("Listening on %s%s\n", h.host, h.path)
+	return h.engine.Run(h.host)
 }

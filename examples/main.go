@@ -37,7 +37,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 func main() {
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
-	go hlaeserver.Start()
+	go func() {
+		err := hlaeserver.Start()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	// NOTE : enclose ws URL with double quotes...
 	// mirv_pgl url "ws://localhost:65535/mirv"
 	// mirv_pgl start
