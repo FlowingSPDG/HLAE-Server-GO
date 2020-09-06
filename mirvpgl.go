@@ -100,18 +100,18 @@ func New(host, path string) (*HLAEServer, error) {
 		}
 	})
 	srv.melody.HandleConnect(func(s *melody.Session) {
-		fmt.Printf("HLAE WebSocket client connected %v\n", s)
 		srv.sessions = append(srv.sessions, s)
+		fmt.Println("HLAE WebSocket client connected. Current clients:", len(srv.sessions))
 		// s.WriteBinary(commandToByteSlice("echo Hello World from Go!"))
 	})
 	srv.melody.HandleDisconnect(func(s *melody.Session) {
-		fmt.Printf("HLAE WebSocket client disconnected %v\n", s)
 		// Remove session from session slice
 		for k, v := range srv.sessions {
 			if v == s {
 				newsession := make([]*melody.Session, len(srv.sessions)-1)
 				newsession = append(srv.sessions[:k], srv.sessions[k+1:]...)
-				copy(srv.sessions, newsession)
+				srv.sessions = newsession
+				fmt.Println("HLAE WebSocket client disconnected. Current clients : ", len(srv.sessions))
 				return
 			}
 		}
@@ -190,14 +190,14 @@ func (h *HLAEServer) RegisterCamHandler(handler func(*CamData)) {
 }
 
 func (h *HLAEServer) handleRequest(cmd string) {
-	fmt.Printf("Sending handler request for %d clients...\n", len(h.handlers))
+	fmt.Printf("Sending handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.handlers[i](cmd)
 	}
 }
 
 func (h *HLAEServer) handleCamRequest(cam *CamData) {
-	fmt.Printf("Sending camera handler request for %d clients...\n", len(h.handlers))
+	fmt.Printf("Sending camera handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.camhandlers[i](cam)
 	}
