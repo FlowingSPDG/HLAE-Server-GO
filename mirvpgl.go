@@ -56,8 +56,6 @@ func New(host, path string) (*HLAEServer, error) {
 		switch cmd {
 		case "hello":
 			fmt.Println("HLAE Client connection established...")
-			srv.handleRequest(cmd)
-		case "version":
 			var version uint32
 			if err := binary.Read(buf, binary.LittleEndian, &version); err != nil {
 				fmt.Println("Failed to read version message buffer : ", err)
