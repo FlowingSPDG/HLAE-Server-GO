@@ -12,6 +12,10 @@ import (
 	"gopkg.in/olahol/melody.v1"
 )
 
+const (
+	mirvPglVersion = 2
+)
+
 var (
 	nullstr = byte('\x00')
 )
@@ -65,6 +69,9 @@ func New(host, path string) (*HLAEServer, error) {
 				return
 			}
 			fmt.Println("Current Version :", version)
+			if version != mirvPglVersion {
+				return
+			}
 			// srv.handleRequest(cmd) // Add version data
 		case "dataStop":
 			fmt.Println("HLAE Client stopped sending data...")

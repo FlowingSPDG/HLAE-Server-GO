@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/big"
 )
 
 const (
@@ -26,101 +25,108 @@ type Cordinates [3]float32
 type EventDescription struct {
 	EventID    int32
 	EventName  string
-	Keys       []EventKeys
+	keyvalue   []EventKeys
+	Keys       map[string]interface{}
 	ClientTime float32
 }
 
 // EventKeys key-value struct with dynamic typing
 type EventKeys struct {
-	Name  string
-	Type  int32
-	Value interface{} // TODO...
+	Name string
+	Type int32
 }
 
 // ParseEvent parse EventDescription
-func ParseEvent(r io.Reader, desc *EventDescription) error {
-	if err := binary.Read(r, binary.LittleEndian, desc.EventID); err != nil {
+func (e *EventDescription) ParseEvent(r io.Reader) error {
+	if err := binary.Read(r, binary.LittleEndian, &e.EventID); err != nil {
 		return fmt.Errorf("Failed to parse Event ID : %v", err)
 	}
-	if err := binary.Read(r, binary.LittleEndian, desc.EventName); err != nil {
-		return fmt.Errorf("Failed to parse Event name : %v", err)
-	}
-	if desc.Keys == nil {
-		desc.Keys = make([]EventKeys, 0)
-	}
-	var ok bool
-	for ok {
-		if err := binary.Read(r, binary.LittleEndian, &ok); err != nil {
+	if e.EventID == 0 {
+		if err := binary.Read(r, binary.LittleEndian, &e.EventID); err != nil {
+			return fmt.Errorf("Failed to parse Event ID : %v", err)
+		}
+		e.EventName, err = buf.ReadString(nullstr)
+		if err != nil {
 			return err
 		}
-		var keyName string
-		if err := binary.Read(r, binary.LittleEndian, &keyName); err != nil {
-			return fmt.Errorf("Failed to parse key name : %v", err)
+		for {
+			var ok bool
+			if err := binary.Read(r, binary.LittleEndian, &ok); err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			keyName, err := buf.ReadString(nullstr)
+			if err != nil {
+				return err
+			}
+			var keyType int32
+			if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
+				return err
+			}
+			e.keyvalue = append(e.keyvalue, EventKeys{
+				Name: keyName,
+				Type: keyType,
+			})
 		}
-		var keyType int32
-		if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
-			return fmt.Errorf("Failed to parse key name : %v", err)
-		}
-		desc.Keys = append(desc.Keys, EventKeys{
-			Name:  keyName,
-			Type:  keyType,
-			Value: nil,
-		})
 	}
-	if err := binary.Read(r, binary.LittleEndian, desc.ClientTime); err != nil {
-		return fmt.Errorf("Failed to parse Client time : %v", err)
+	if err := binary.Read(r, binary.LittleEndian, &e.ClientTime); err != nil {
+		return err
 	}
-	for k, v := range desc.Keys {
-		switch v.Type {
+	for k, v := range e.keyvalue {
+		key := v
+		keyName := v.Name
+		var keyValue interface{}
+
+		switch key.Type {
 		case KEYTYPE_STRING:
-			var v string
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			keyValue, err = buf.ReadString(nullstr)
+			if err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
 		case KEYTYPE_FLOAT32:
-			var v float32
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			var f float32
+			if err := binary.Read(&f); err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
+			keyValue = f
 		case KEYTYPE_INT32:
-			var v int32
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			var f int32
+			if err := binary.Read(&f); err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
+			keyValue = f
 		case KEYTYPE_INT16:
-			var v int16
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			var f int16
+			if err := binary.Read(&f); err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
+			keyValue = f
+		case KEYTYPE_INT16:
+			var f int16
+			if err := binary.Read(&f); err != nil {
+				return err
+			}
+			keyValue = f
 		case KEYTYPE_INT8:
-			var v int8
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			var f int8
+			if err := binary.Read(&f); err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
+			keyValue = f
 		case KEYTYPE_BOOLEAN:
-			var v bool
-			if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
+			var f bool
+			if err := binary.Read(&f); err != nil {
+				return err
 			}
-			desc.Keys[k].Value = v
+			keyValue = f
 		case KEYTYPE_BIGUINT64:
-			ar := [8]byte{}
-			if err := binary.Read(r, binary.LittleEndian, &ar); err != nil {
-				return fmt.Errorf("Failed to parse Key value : %v", err)
-			}
-			v := big.Int{}
-			sl := make([]byte, 0, 8)
-			copy(sl, ar[:])
-			v.SetBytes(sl)
-			desc.Keys[k].Value = v
+			// ??
 		default:
-			return fmt.Errorf("Failed to parse Key type")
+			return fmt.Errorf("Unknown Event key")
 		}
+		// Check enrichments keyName check...
 	}
 	return nil
 }
