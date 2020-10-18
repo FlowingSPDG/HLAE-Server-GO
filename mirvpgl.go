@@ -100,7 +100,7 @@ func New(host, path string) (*HLAEServer, error) {
 			srv.handleCamRequest(camData)
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
-			ev := EventDescription{}
+			ev := &EventDescription{}
 			if err := ev.Unserialize(buf); err != nil {
 				fmt.Println("Failed to parse event descriptions... ERR:", err)
 				return
