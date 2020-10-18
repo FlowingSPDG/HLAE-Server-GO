@@ -30,16 +30,11 @@ type EventDescription struct {
 	keyvalue   []EventKeys
 	Keys       map[string]interface{}
 	ClientTime float32
+	// enrichment // see https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
 }
 
-// EventKeys key-value struct with dynamic typing
-type EventKeys struct {
-	Name string
-	Type int32
-}
-
-// ParseEvent parse EventDescription
-func (e *EventDescription) ParseEvent(r io.Reader) error {
+// Unserialize parse EventDescription
+func (e *EventDescription) Unserialize(r io.Reader) error {
 	buf := bufio.NewReader(r)
 	if err := binary.Read(r, binary.LittleEndian, &e.EventID); err != nil {
 		return fmt.Errorf("Failed to parse Event ID : %v", err)
@@ -142,6 +137,64 @@ func (e *EventDescription) ParseEvent(r io.Reader) error {
 		}
 		e.Keys[keyName] = keyValue
 		// Check enrichments keyName check...
+	}
+	return nil
+}
+
+// EventKeys key-value struct with dynamic typing
+type EventKeys struct {
+	Name string
+	Type int32
+}
+
+// UserIDEnrichment contains User informations with XUID/Eyeorigins(Cordinates)/EyeAngles(Cordinates)
+type UserIDEnrichment struct {
+	XUID      string
+	EyeOrigin Cordinates
+	EyeAngles Cordinates
+	// keyValue??
+}
+
+// Unserialize UserID Enrichment
+func (u *UserIDEnrichment) Unserialize(r io.Reader) error {
+	var f1 uint32
+	var f2 uint32
+	if err := binary.Read(r, binary.LittleEndian, &f1); err != nil {
+		return err
+	}
+	if err := binary.Read(r, binary.LittleEndian, &f2); err != nil {
+		return err
+	}
+	var u1 *big.Int
+	var u2 *big.Int
+	u1 = u1.SetUint64(uint64(f1))
+	u2 = u2.SetUint64(uint64(f2))
+	var f *big.Int
+	u.XUID = f.Add(u1, u2).String()
+
+	if err := binary.Read(r, binary.LittleEndian, &u.EyeOrigin); err != nil {
+		return err
+	}
+	if err := binary.Read(r, binary.LittleEndian, &u.EyeAngles); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EntityNumEnrichment containns Entity's Origin/Angles.
+type EntityNumEnrichment struct {
+	Origin Cordinates
+	Angles Cordinates
+	// KeyValue??
+}
+
+// Unserialize EntityNum Enrichment
+func (e *EntityNumEnrichment) Unserialize(r io.Reader) error {
+	if err := binary.Read(r, binary.LittleEndian, &e.Origin); err != nil {
+		return err
+	}
+	if err := binary.Read(r, binary.LittleEndian, &e.Angles); err != nil {
+		return err
 	}
 	return nil
 }

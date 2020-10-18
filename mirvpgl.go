@@ -101,17 +101,13 @@ func New(host, path string) (*HLAEServer, error) {
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
 			ev := EventDescription{}
-			if err := ParseEvent(buf, &ev); err != nil {
-				fmt.Println("Failed to parse event descriptions...")
+			if err := ev.Unserialize(buf); err != nil {
+				fmt.Println("Failed to parse event descriptions... ERR:", err)
 				return
 			}
-
-			if ev.EventID == 0 {
-				// TODO...
-			}
 			log.Printf("EVENT : %v\n", ev)
-			//TODO. JSON
-			// srv.handleRequest(cmd)
+			// TODO. Handle Event Request...
+			// srv.handleRequest(ev)
 		default:
 			fmt.Printf("Unknown message:[%s]\n", cmd)
 			srv.handleRequest(cmd)
