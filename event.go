@@ -126,12 +126,12 @@ func (e *EventDescription) Unserialize(r io.Reader) error {
 			if err := binary.Read(r, binary.LittleEndian, &f2); err != nil {
 				return err
 			}
-			var u1 *big.Int
-			var u2 *big.Int
-			u1 = u1.SetUint64(uint64(f1))
-			u2 = u2.SetUint64(uint64(f2))
+			var lo *big.Int
+			var hi *big.Int
+			lo = lo.SetUint64(uint64(f1))
+			hi = hi.SetUint64(uint64(f2))
 			var f *big.Int
-			keyValue = f.Or(u1, u2).Lsh(f, 32).String()
+			keyValue = f.Or(lo, hi.Lsh(hi, 32)).String()
 		default:
 			return fmt.Errorf("Unknown Event key")
 		}
