@@ -92,7 +92,6 @@ func New(host, path string) (*HLAEServer, error) {
 			srv.handleRequest(cmd)
 		case "cam":
 			camData := &CamData{}
-
 			if err := binary.Read(buf, binary.LittleEndian, camData); err != nil {
 				fmt.Println("Failed to read cam message buffer : ", err)
 				return

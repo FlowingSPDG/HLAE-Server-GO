@@ -131,7 +131,7 @@ func (e *EventDescription) Unserialize(r io.Reader) error {
 			u1 = u1.SetUint64(uint64(f1))
 			u2 = u2.SetUint64(uint64(f2))
 			var f *big.Int
-			keyValue = f.Add(u1, u2)
+			keyValue = f.Or(u1, u2).Lsh(f, 32).String()
 		default:
 			return fmt.Errorf("Unknown Event key")
 		}
