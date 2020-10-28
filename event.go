@@ -21,7 +21,11 @@ const (
 )
 
 // Cordinates include float32 X/Y/Z Pos cordinates.
-type Cordinates [3]float32
+type Cordinates struct {
+	X float32
+	Y float32
+	Z float32
+}
 
 // EventDescription include Event ID,Name, Keys etc.
 type EventDescription struct {
