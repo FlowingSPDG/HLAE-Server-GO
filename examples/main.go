@@ -42,6 +42,9 @@ func main() {
 	// mirv_pgl datastart
 	for {
 		cmd := prompt.Input("HLAE >>> ", completer)
+		if cmd == "exit" {
+			break
+		}
 		hlaeserver.BroadcastRCON(cmd)
 	}
 }

@@ -58,6 +58,7 @@ func (g *gameEventUnserializer) Unserialize(r io.Reader) (*GameEventData, error)
 			ev = e
 		}
 	}
+	fmt.Println("ev:", ev)
 	return ev.Unserialize(r)
 }
 
@@ -68,7 +69,7 @@ type Cordinates struct {
 	Z float32
 }
 
-// EventDescription include Event ID,Name, Keys etc.
+// GameEventDescription include Event ID,Name, Keys etc.
 type GameEventDescription struct {
 	EventID     int32
 	EventName   string
@@ -96,7 +97,11 @@ func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
 	for {
 		if ok, err := buf.ReadByte(); err != nil {
 			if err != nil {
-				return nil, err
+				if err == io.EOF {
+					break
+				} else {
+					return nil, fmt.Errorf("Failed to read ok value:%v", err)
+				}
 			}
 			if ok == 0 {
 				break
@@ -119,7 +124,7 @@ func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
 	return d, nil
 }
 
-// GameEventData
+// GameEventData Game event keys and time
 type GameEventData struct {
 	Name       string
 	ClientTime float32
@@ -132,7 +137,7 @@ func (e *GameEventDescription) Unserialize(r io.Reader) (*GameEventData, error) 
 
 	buf := bufio.NewReader(r)
 	if err := binary.Read(r, binary.LittleEndian, &d.ClientTime); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to read client time:%v", err)
 	}
 
 	for _, v := range e.Keys {
@@ -142,47 +147,47 @@ func (e *GameEventDescription) Unserialize(r io.Reader) (*GameEventData, error) 
 		case KEYTYPE_STRING:
 			val, err := buf.ReadString(nullstr)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read CString value:%v", err)
 			}
 			keyvalue = val
 		case KEYTYPE_FLOAT32:
 			var f float32
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read float32 value:%v", err)
 			}
 			keyvalue = strconv.FormatFloat(float64(f), 'f', -1, 64)
 		case KEYTYPE_INT32:
 			var f int32
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read int32 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT16:
 			var f int16
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read int16 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT8:
 			var f int8
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read int8 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_BOOLEAN:
 			var f bool
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read boolean value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_BIGUINT64:
 			var f1 uint32
 			var f2 uint32
 			if err := binary.Read(r, binary.LittleEndian, &f1); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read bigint64 value:%v", err)
 			}
 			if err := binary.Read(r, binary.LittleEndian, &f2); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to read bigint64 value:%v", err)
 			}
 			var lo *big.Int
 			var hi *big.Int

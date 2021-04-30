@@ -45,9 +45,10 @@ func New(host, path string) (*HLAEServer, error) {
 		engine:   nil,
 	}
 	srv.melody = melody.New()
+	srv.eventSerializer = newGameEventUnserializer(enrichments)
 
 	srv.melody.HandleConnect(func(s *melody.Session) {
-		srv.eventSerializer = newGameEventUnserializer(enrichments)
+
 	})
 	srv.melody.HandleMessageBinary(func(s *melody.Session, data []byte) {
 		buf := bytes.NewBuffer(data)
