@@ -95,32 +95,30 @@ func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
 	}
 	d.EventName = eventName
 	for {
-		if ok, err := buf.ReadByte(); err != nil {
-			if err != nil {
-				if err == io.EOF {
-					break
-				} else {
-					return nil, fmt.Errorf("Failed to read ok value:%v", err)
-				}
-			}
-			if ok == 0 {
+		ok, err := buf.ReadByte()
+		if err != nil {
+			if err == io.EOF {
 				break
+			} else {
+				return nil, fmt.Errorf("Failed to read ok value:%v", err)
 			}
-			keyName, err := buf.ReadString(nullstr)
-			if err != nil {
-				return nil, err
-			}
-			var keyType int32
-			if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
-				return nil, err
-			}
-			d.Keys = append(d.Keys, EventKey{
-				Name: keyName,
-				Type: keyType,
-			})
 		}
+		if ok == 0 {
+			break
+		}
+		keyName, err := buf.ReadString(nullstr)
+		if err != nil {
+			return nil, err
+		}
+		var keyType int32
+		if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
+			return nil, err
+		}
+		d.Keys = append(d.Keys, EventKey{
+			Name: keyName,
+			Type: keyType,
+		})
 	}
-
 	return d, nil
 }
 
