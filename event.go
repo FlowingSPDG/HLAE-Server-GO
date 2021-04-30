@@ -51,7 +51,12 @@ func (g *gameEventUnserializer) Unserialize(r io.Reader) (*GameEventData, error)
 		}
 		ev = gameEvent
 	} else {
-		ev = g.KnownEvents[eventID]
+		e, ok := g.KnownEvents[eventID]
+		if !ok {
+			ev = &GameEventDescription{}
+		} else {
+			ev = e
+		}
 	}
 	return ev.Unserialize(r)
 }
