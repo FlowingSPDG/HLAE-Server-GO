@@ -45,6 +45,10 @@ func New(host, path string) (*HLAEServer, error) {
 		engine:   nil,
 	}
 	srv.melody = melody.New()
+
+	srv.melody.HandleConnect(func(s *melody.Session) {
+		srv.eventSerializer = newGameEventUnserializer(enrichments)
+	})
 	srv.melody.HandleMessageBinary(func(s *melody.Session, data []byte) {
 		buf := bytes.NewBuffer(data)
 		cmd, err := buf.ReadString(nullstr)
@@ -93,14 +97,14 @@ func New(host, path string) (*HLAEServer, error) {
 		case "cam":
 			camData := &CamData{}
 			if err := binary.Read(buf, binary.LittleEndian, camData); err != nil {
-				fmt.Println("Failed to read cam message buffer : ", err)
+				fmt.Println("Failed to parse cam message buffer : ", err)
 				return
 			}
 			srv.handleCamRequest(camData)
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
-			ev := &EventDescription{}
-			if err := ev.Unserialize(buf); err != nil {
+			ev, err := srv.eventSerializer.Unserialize(buf)
+			if err != nil {
 				fmt.Println("Failed to parse event descriptions... ERR:", err)
 				return
 			}
@@ -141,11 +145,12 @@ func New(host, path string) (*HLAEServer, error) {
 
 // HLAEServer Main struct
 type HLAEServer struct {
-	host     string
-	path     string
-	melody   *melody.Melody
-	sessions []*melody.Session
-	engine   *gin.Engine
+	host            string
+	path            string
+	melody          *melody.Melody
+	sessions        []*melody.Session
+	engine          *gin.Engine
+	eventSerializer *gameEventUnserializer
 
 	handlers    []func(string)
 	camhandlers []func(*CamData)

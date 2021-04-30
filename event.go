@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strconv"
 )
 
 const (
@@ -20,6 +21,41 @@ const (
 	KEYTYPE_UNKNOWN
 )
 
+type gameEventUnserializer struct {
+	Enrichments Enrichments
+	KnownEvents map[int32]*GameEventDescription // id->event desc
+}
+
+func newGameEventUnserializer(e Enrichments) *gameEventUnserializer {
+	return &gameEventUnserializer{
+		Enrichments: e,
+		KnownEvents: make(map[int32]*GameEventDescription, 0),
+	}
+}
+
+func (g *gameEventUnserializer) Unserialize(r io.Reader) (*GameEventData, error) {
+	var ev *GameEventDescription
+	var eventID int32
+	if err := binary.Read(r, binary.LittleEndian, &eventID); err != nil {
+		return nil, err
+	}
+	if eventID == 0 {
+		gameEvent, err := newGameEventDescription(r)
+		if err != nil {
+			return nil, err
+		}
+		g.KnownEvents[gameEvent.EventID] = gameEvent
+
+		if _, ok := g.Enrichments[gameEvent.EventName]; ok {
+			gameEvent.enrichments = g.Enrichments[gameEvent.EventName]
+		}
+		ev = gameEvent
+	} else {
+		ev = g.KnownEvents[eventID]
+	}
+	return ev.Unserialize(r)
+}
+
 // Cordinates include float32 X/Y/Z Pos cordinates.
 type Cordinates struct {
 	X float32
@@ -28,177 +64,138 @@ type Cordinates struct {
 }
 
 // EventDescription include Event ID,Name, Keys etc.
-type EventDescription struct {
-	EventID    int32
-	EventName  string
-	keyvalue   []EventKeys
-	Keys       map[string]interface{}
-	ClientTime float32
+type GameEventDescription struct {
+	EventID     int32
+	EventName   string
+	Keys        []EventKey // KeyName->Key type
+	enrichments map[string]Enrichment
 	// enrichment // see https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
 }
 
-// Unserialize parse EventDescription
-func (e *EventDescription) Unserialize(r io.Reader) error {
-	buf := bufio.NewReader(r)
-	if err := binary.Read(r, binary.LittleEndian, &e.EventID); err != nil {
-		return fmt.Errorf("Failed to parse Event ID : %v", err)
+func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
+	d := &GameEventDescription{
+		EventID:   0,
+		EventName: "",
+		Keys:      make([]EventKey, 0),
 	}
-	if e.EventID == 0 {
-		if err := binary.Read(r, binary.LittleEndian, &e.EventID); err != nil {
-			return fmt.Errorf("Failed to parse Event ID : %v", err)
-		}
-		var err error
-		e.EventName, err = buf.ReadString(nullstr)
-		if err != nil {
-			return err
-		}
-		for {
-			var ok bool
-			if err := binary.Read(r, binary.LittleEndian, &ok); err != nil {
-				return err
+	buf := bufio.NewReader(r)
+	if err := binary.Read(r, binary.LittleEndian, &d.EventID); err != nil {
+		return nil, fmt.Errorf("Failed to parse Event ID : %v", err)
+	}
+
+	eventName, err := buf.ReadString(nullstr)
+	if err != nil {
+		return nil, err
+	}
+	d.EventName = eventName
+	for {
+		if ok, err := buf.ReadByte(); err != nil {
+			if err != nil {
+				return nil, err
 			}
-			if !ok {
+			if ok == 0 {
 				break
 			}
 			keyName, err := buf.ReadString(nullstr)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			var keyType int32
 			if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
-				return err
+				return nil, err
 			}
-			e.keyvalue = append(e.keyvalue, EventKeys{
+			d.Keys = append(d.Keys, EventKey{
 				Name: keyName,
 				Type: keyType,
 			})
 		}
 	}
-	if err := binary.Read(r, binary.LittleEndian, &e.ClientTime); err != nil {
-		return err
+
+	return d, nil
+}
+
+// GameEventData
+type GameEventData struct {
+	Name       string
+	ClientTime float32
+	Keys       map[string]string // Even value is float32 or int etc. convert to string
+}
+
+// Unserialize parse EventDescription
+func (e *GameEventDescription) Unserialize(r io.Reader) (*GameEventData, error) {
+	d := &GameEventData{}
+
+	buf := bufio.NewReader(r)
+	if err := binary.Read(r, binary.LittleEndian, &d.ClientTime); err != nil {
+		return nil, err
 	}
-	e.Keys = make(map[string]interface{})
 
-	for _, v := range e.keyvalue {
-		key := v
-		keyName := v.Name
-		var keyValue interface{}
-
-		switch key.Type {
+	for _, v := range e.Keys {
+		keyname := v.Name
+		var keyvalue string
+		switch v.Type {
 		case KEYTYPE_STRING:
-			var err error
-			keyValue, err = buf.ReadString(nullstr)
+			val, err := buf.ReadString(nullstr)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			keyvalue = val
 		case KEYTYPE_FLOAT32:
 			var f float32
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
-			keyValue = f
+			keyvalue = strconv.FormatFloat(float64(f), 'f', -1, 64)
 		case KEYTYPE_INT32:
 			var f int32
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
-			keyValue = f
+			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT16:
 			var f int16
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
-			keyValue = f
+			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT8:
 			var f int8
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
-			keyValue = f
+			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_BOOLEAN:
 			var f bool
 			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
-			keyValue = f
+			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_BIGUINT64:
 			var f1 uint32
 			var f2 uint32
 			if err := binary.Read(r, binary.LittleEndian, &f1); err != nil {
-				return err
+				return nil, err
 			}
 			if err := binary.Read(r, binary.LittleEndian, &f2); err != nil {
-				return err
+				return nil, err
 			}
 			var lo *big.Int
 			var hi *big.Int
 			lo = lo.SetUint64(uint64(f1))
 			hi = hi.SetUint64(uint64(f2))
 			var f *big.Int
-			keyValue = f.Or(lo, hi.Lsh(hi, 32)).String()
+			keyvalue = f.Or(lo, hi.Lsh(hi, 32)).String()
 		default:
-			return fmt.Errorf("Unknown Event key")
+			return nil, fmt.Errorf("Unknown Event key")
 		}
-		e.Keys[keyName] = keyValue
+		d.Keys[keyname] = keyvalue
 		// Check enrichments keyName check...
 	}
-	return nil
+	return d, nil
 }
 
-// EventKeys key-value struct with dynamic typing
-type EventKeys struct {
+// EventKey key-value struct with dynamic typing
+type EventKey struct {
 	Name string
 	Type int32
-}
-
-// UserIDEnrichment contains User informations with XUID/Eyeorigins(Cordinates)/EyeAngles(Cordinates)
-type UserIDEnrichment struct {
-	XUID      string
-	EyeOrigin Cordinates
-	EyeAngles Cordinates
-	// keyValue??
-}
-
-// Unserialize UserID Enrichment
-func (u *UserIDEnrichment) Unserialize(r io.Reader) error {
-	var f1 uint32
-	var f2 uint32
-	if err := binary.Read(r, binary.LittleEndian, &f1); err != nil {
-		return err
-	}
-	if err := binary.Read(r, binary.LittleEndian, &f2); err != nil {
-		return err
-	}
-	var u1 *big.Int
-	var u2 *big.Int
-	u1 = u1.SetUint64(uint64(f1))
-	u2 = u2.SetUint64(uint64(f2))
-	var f *big.Int
-	u.XUID = f.Add(u1, u2).String()
-
-	if err := binary.Read(r, binary.LittleEndian, &u.EyeOrigin); err != nil {
-		return err
-	}
-	if err := binary.Read(r, binary.LittleEndian, &u.EyeAngles); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EntityNumEnrichment containns Entity's Origin/Angles.
-type EntityNumEnrichment struct {
-	Origin Cordinates
-	Angles Cordinates
-	// KeyValue??
-}
-
-// Unserialize EntityNum Enrichment
-func (e *EntityNumEnrichment) Unserialize(r io.Reader) error {
-	if err := binary.Read(r, binary.LittleEndian, &e.Origin); err != nil {
-		return err
-	}
-	if err := binary.Read(r, binary.LittleEndian, &e.Angles); err != nil {
-		return err
-	}
-	return nil
 }
