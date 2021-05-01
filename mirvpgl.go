@@ -81,7 +81,7 @@ func New(host, path string) (*HLAEServer, error) {
 			for eventName, v := range enrichments {
 				for enrichName, e := range v {
 					for _, er := range e.GetEnrichment() {
-						cmd := fmt.Sprintf("mirv_pgl events enrich eventProperty %s %s %s", er, eventName, enrichName)
+						cmd := fmt.Sprintf("mirv_pgl events enrich eventProperty \"%s\" \"%s\" \"%s\"", er, eventName, enrichName)
 						s.WriteBinary(commandToByteSlice(cmd))
 					}
 				}
