@@ -66,8 +66,6 @@ func New(host, path string) (*HLAEServer, error) {
 		switch cmd {
 		case "hello":
 			fmt.Println("HLAE Client connection established...")
-			srv.handleRequest(cmd)
-		case "version":
 			var version uint32
 			if err := binary.Read(buf, binary.LittleEndian, &version); err != nil {
 				fmt.Println("Failed to read version message buffer : ", err)
@@ -77,7 +75,7 @@ func New(host, path string) (*HLAEServer, error) {
 			if version != mirvPglVersion {
 				return
 			}
-			// srv.handleRequest(cmd) // Add version data
+			srv.handleRequest(cmd)
 		case "dataStop":
 			fmt.Println("HLAE Client stopped sending data...")
 			srv.handleRequest(cmd)
@@ -110,8 +108,7 @@ func New(host, path string) (*HLAEServer, error) {
 				return
 			}
 			log.Printf("EVENT : %v\n", ev)
-			// TODO. Handle Event Request...
-			// srv.handleRequest(ev)
+			srv.handleEventRequest(ev)
 		default:
 			fmt.Printf("Unknown message:[%s]\n", cmd)
 			srv.handleRequest(cmd)
@@ -153,8 +150,9 @@ type HLAEServer struct {
 	engine          *gin.Engine
 	eventSerializer *gameEventUnserializer
 
-	handlers    []func(string)
-	camhandlers []func(*CamData)
+	handlers      []func(string)
+	camhandlers   []func(*CamData)
+	eventhandlers []func(*GameEventData)
 }
 
 func commandToByteSlice(cmd string) []byte {
@@ -208,6 +206,15 @@ func (h *HLAEServer) RegisterCamHandler(handler func(*CamData)) {
 	fmt.Printf("Registered Camera handler. Currently %d handlers are active\n", len(h.handlers))
 }
 
+// RegisterEventHandler to handle each requests
+func (h *HLAEServer) RegisterEventHandler(handler func(*GameEventData)) {
+	if h.eventhandlers == nil {
+		h.eventhandlers = make([]func(*GameEventData), 0)
+	}
+	h.eventhandlers = append(h.eventhandlers, handler)
+	fmt.Printf("Registered event handler. Currently %d handlers are active\n", len(h.eventhandlers))
+}
+
 func (h *HLAEServer) handleRequest(cmd string) {
 	fmt.Printf("Sending handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
@@ -219,6 +226,13 @@ func (h *HLAEServer) handleCamRequest(cam *CamData) {
 	fmt.Printf("Sending camera handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.camhandlers[i](cam)
+	}
+}
+
+func (h *HLAEServer) handleEventRequest(ev *GameEventData) {
+	fmt.Printf("Sending event handler request for %d handlers...\n", len(h.eventhandlers))
+	for i := 0; i < len(h.eventhandlers); i++ {
+		go h.eventhandlers[i](ev)
 	}
 }
 
