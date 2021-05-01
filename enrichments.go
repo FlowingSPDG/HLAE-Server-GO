@@ -4,255 +4,255 @@ package mirvpgl
 var (
 	enrichments = Enrichments{
 		"player_death": {
-			"userid":   &UserIDEnrichment{},
-			"attacker": &UserIDEnrichment{},
-			"assister": &UserIDEnrichment{},
+			"userid":   newUserIDEnrichment(),
+			"attacker": newUserIDEnrichment(),
+			"assister": newUserIDEnrichment(),
 		},
 		"other_death": {
-			"attacker": &UserIDEnrichment{},
+			"attacker": newUserIDEnrichment(),
 		},
 		"player_hurt": {
-			"userid":   &UserIDEnrichment{},
-			"attacker": &UserIDEnrichment{},
+			"userid":   newUserIDEnrichment(),
+			"attacker": newUserIDEnrichment(),
 		},
 		"item_purchase": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_beginplant": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_abortplant": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_planted": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_defused": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_exploded": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_pickup": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_dropped": {
-			"userid":   &UserIDEnrichment{},
-			"entindex": &EntityNumEnrichment{},
+			"userid":   newUserIDEnrichment(),
+			"entindex": newEntityNumEnrichment(),
 		},
 		"defuser_dropped": {
-			"entityid": &EntityNumEnrichment{},
+			"entityid": newEntityNumEnrichment(),
 		},
 		"defuser_pickup": {
-			"entityid": &EntityNumEnrichment{},
-			"userid":   &UserIDEnrichment{},
+			"entityid": newEntityNumEnrichment(),
+			"userid":   newUserIDEnrichment(),
 		},
 		"bomb_begindefuse": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_abortdefuse": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"hostage_follows": {
-			"userid":  &UserIDEnrichment{},
-			"hostage": &EntityNumEnrichment{},
+			"userid":  newUserIDEnrichment(),
+			"hostage": newEntityNumEnrichment(),
 		},
 		"hostage_hurt": {
-			"userid":  &UserIDEnrichment{},
-			"hostage": &EntityNumEnrichment{},
+			"userid":  newUserIDEnrichment(),
+			"hostage": newEntityNumEnrichment(),
 		},
 		"hostage_killed": {
-			"userid":  &UserIDEnrichment{},
-			"hostage": &EntityNumEnrichment{},
+			"userid":  newUserIDEnrichment(),
+			"hostage": newEntityNumEnrichment(),
 		},
 		"hostage_rescued": {
-			"userid":  &UserIDEnrichment{},
-			"hostage": &EntityNumEnrichment{},
+			"userid":  newUserIDEnrichment(),
+			"hostage": newEntityNumEnrichment(),
 		},
 		"hostage_stops_following": {
-			"userid":  &UserIDEnrichment{},
-			"hostage": &EntityNumEnrichment{},
+			"userid":  newUserIDEnrichment(),
+			"hostage": newEntityNumEnrichment(),
 		},
 		"hostage_call_for_help": {
-			"hostage": &EntityNumEnrichment{},
+			"hostage": newEntityNumEnrichment(),
 		},
 		"vip_escaped": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_radio": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bomb_beep": {
-			"entindex": &EntityNumEnrichment{},
+			"entindex": newEntityNumEnrichment(),
 		},
 		"weapon_fire": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"weapon_fire_on_empty": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"grenade_thrown": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"weapon_outofammo": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"weapon_reload": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"weapon_zoom": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"silencer_detach": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"inspect_weapon": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"weapon_zoom_rifle": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_spawned": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"item_pickup": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"item_pickup_failed": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"item_remove": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"ammo_pickup": {
-			"userid": &UserIDEnrichment{},
-			"index":  &EntityNumEnrichment{},
+			"userid": newUserIDEnrichment(),
+			"index":  newEntityNumEnrichment(),
 		},
 		"item_equip": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"enter_buyzone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"exit_buyzone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"enter_bombzone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"exit_bombzone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"enter_rescue_zone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"exit_rescue_zone": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"silencer_off": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"silencer_on": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"buymenu_open": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"buymenu_close": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"round_end": {
-			"winner": &UserIDEnrichment{},
+			"winner": newUserIDEnrichment(),
 		},
 		"grenade_bounce": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"hegrenade_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"flashbang_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"smokegrenade_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"smokegrenade_expired": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"molotov_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"decoy_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"decoy_started": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"tagrenade_detonate": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"decoy_firing": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"bullet_impact": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_footstep": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_jump": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_blind": {
-			"userid":   &UserIDEnrichment{},
-			"entityid": &EntityNumEnrichment{},
+			"userid":   newUserIDEnrichment(),
+			"entityid": newEntityNumEnrichment(),
 		},
 		"player_falldamage": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"door_moving": {
-			"entityid": &EntityNumEnrichment{},
-			"userid":   &UserIDEnrichment{},
+			"entityid": newEntityNumEnrichment(),
+			"userid":   newUserIDEnrichment(),
 		},
 		"spec_target_updated": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_avenged_teammate": {
-			"avenger_id":        &UserIDEnrichment{},
-			"avenged_player_id": &UserIDEnrichment{},
+			"avenger_id":        newUserIDEnrichment(),
+			"avenged_player_id": newUserIDEnrichment(),
 		},
 		"round_mvp": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_decal": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 
 		// ... left out the gg / gungame shit, feel free to add it ...
 
 		"player_reset_vote": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"start_vote": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_given_c4": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"player_become_ghost": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 
 		// ... left out the tr shit, feel free to add it ...
 
 		"jointeam_failed": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"teamchange_pending": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 		"ammo_refill": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 
 		// ... left out the dangerzone shit, feel free to add it ...
@@ -260,7 +260,7 @@ var (
 		// others:
 
 		"weaponhud_selection": {
-			"userid": &UserIDEnrichment{},
+			"userid": newUserIDEnrichment(),
 		},
 	}
 )

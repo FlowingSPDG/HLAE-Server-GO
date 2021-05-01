@@ -11,16 +11,31 @@ type Enrichments map[string]map[string]Enrichment
 type Enrichment interface {
 	Unserialize(r io.Reader) error
 	GetMap() map[string]interface{}
-	SetEnrichment(map[string]string)
+	SetEnrichment([]string)
+	GetEnrichment() []string
 }
 
 // UserIDEnrichment contains User informations with XUID/Eyeorigins(Cordinates)/EyeAngles(Cordinates)
 type UserIDEnrichment struct {
-	enrichments map[string]string
+	enrichments []string
 	XUID        *big.Int
 	EyeOrigin   Cordinates
 	EyeAngles   Cordinates
 	KeyValue    string
+}
+
+func newUserIDEnrichment() *UserIDEnrichment {
+	return &UserIDEnrichment{
+		enrichments: []string{
+			"useridWithSteamId",
+			"useridWithEyePosition",
+			"useridWithEyeAngles",
+		},
+		XUID:      &big.Int{},
+		EyeOrigin: Cordinates{},
+		EyeAngles: Cordinates{},
+		KeyValue:  "",
+	}
 }
 
 // Unserialize Unserialize into u
@@ -59,16 +74,32 @@ func (u *UserIDEnrichment) GetMap() map[string]interface{} {
 	}
 }
 
-func (u *UserIDEnrichment) SetEnrichment(en map[string]string) {
+func (u *UserIDEnrichment) SetEnrichment(en []string) {
 	u.enrichments = en
+}
+
+func (u *UserIDEnrichment) GetEnrichment() []string {
+	return u.enrichments
 }
 
 // EntityNumEnrichment containns Entity's Origin/Angles.
 type EntityNumEnrichment struct {
-	enrichments map[string]string
+	enrichments []string
 	Origin      Cordinates
 	Angles      Cordinates
 	KeyValue    string
+}
+
+func newEntityNumEnrichment() *EntityNumEnrichment {
+	return &EntityNumEnrichment{
+		enrichments: []string{
+			"entnumWithOrigin",
+			"entnumWithAngles",
+		},
+		Origin:   Cordinates{},
+		Angles:   Cordinates{},
+		KeyValue: "",
+	}
 }
 
 // GetMap EntityNum Enrichment
@@ -91,6 +122,9 @@ func (e *EntityNumEnrichment) GetMap() map[string]interface{} {
 	}
 }
 
-func (e *EntityNumEnrichment) SetEnrichment(en map[string]string) {
+func (e *EntityNumEnrichment) SetEnrichment(en []string) {
 	e.enrichments = en
+}
+func (e *EntityNumEnrichment) GetEnrichment() []string {
+	return e.enrichments
 }

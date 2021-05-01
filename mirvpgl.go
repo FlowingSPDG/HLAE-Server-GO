@@ -75,6 +75,21 @@ func New(host, path string) (*HLAEServer, error) {
 			if version != mirvPglVersion {
 				return
 			}
+
+			// transBegin
+			s.WriteBinary(commandToByteSlice("mirv_pgl events enrich clientTime 1"))
+			for eventName, v := range enrichments {
+				for enrichName, e := range v {
+					for _, er := range e.GetEnrichment() {
+						cmd := fmt.Sprintf("mirv_pgl events enrich eventProperty %s %s %s", er, eventName, enrichName)
+						s.WriteBinary(commandToByteSlice(cmd))
+					}
+				}
+			}
+			s.WriteBinary(commandToByteSlice("mirv_pgl events enabled 1"))
+			s.WriteBinary(commandToByteSlice("mirv_pgl events useCache 1"))
+			//transEnd
+
 			srv.handleRequest(cmd)
 		case "dataStop":
 			fmt.Println("HLAE Client stopped sending data...")
