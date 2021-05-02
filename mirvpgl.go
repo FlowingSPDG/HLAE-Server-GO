@@ -76,19 +76,19 @@ func New(host, path string) (*HLAEServer, error) {
 				return
 			}
 
-			// transBegin
+			srv.TransBegin()
 			s.WriteBinary(commandToByteSlice("mirv_pgl events enrich clientTime 1"))
 			for eventName, v := range enrichments {
 				for enrichName, e := range v {
 					for _, er := range e.GetEnrichment() {
-						cmd := fmt.Sprintf("mirv_pgl events enrich eventProperty \"%s\" \"%s\" \"%s\"", er, eventName, enrichName)
+						cmd := fmt.Sprintf(`mirv_pgl events enrich eventProperty "%s" "%s" "%s"`, er, eventName, enrichName)
 						s.WriteBinary(commandToByteSlice(cmd))
 					}
 				}
 			}
 			s.WriteBinary(commandToByteSlice("mirv_pgl events enabled 1"))
 			s.WriteBinary(commandToByteSlice("mirv_pgl events useCache 1"))
-			//transEnd
+			srv.TransEnd()
 
 			srv.handleRequest(cmd)
 		case "dataStop":
@@ -249,6 +249,24 @@ func (h *HLAEServer) handleEventRequest(ev *GameEventData) {
 	for i := 0; i < len(h.eventhandlers); i++ {
 		go h.eventhandlers[i](ev)
 	}
+}
+
+// TransBegin Start transaction
+func (h *HLAEServer) TransBegin() error {
+	length := len("transBegin") + 1 // "transBegin" + nullstr
+	command := make([]byte, 0, length)
+	command = append(command, []byte("transBegin")...)
+	command = append(command, nullstr)
+	return h.melody.BroadcastBinary(command)
+}
+
+// TransEnd End transaction
+func (h *HLAEServer) TransEnd() error {
+	length := len("transEnd") + 1 // "transEnd" + nullstr
+	command := make([]byte, 0, length)
+	command = append(command, []byte("transEnd")...)
+	command = append(command, nullstr)
+	return h.melody.BroadcastBinary(command)
 }
 
 // Start listening
