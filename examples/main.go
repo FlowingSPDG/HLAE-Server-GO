@@ -17,6 +17,11 @@ func ExampleCamHandler(cam *mirvpgl.CamData) {
 	fmt.Printf("Received cam data %v\n", cam)
 }
 
+// ExampleEventHandler for cam datas
+func ExampleEventHandler(ev *mirvpgl.GameEventData) {
+	fmt.Printf("Received event data %v\n", ev)
+}
+
 func completer(in prompt.Document) []prompt.Suggest {
 	s := []prompt.Suggest{}
 	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
@@ -29,6 +34,7 @@ func main() {
 	}
 	hlaeserver.RegisterHandler(ExampleHandler)
 	hlaeserver.RegisterCamHandler(ExampleCamHandler)
+	hlaeserver.RegisterEventHandler(ExampleEventHandler)
 	go func() {
 		err := hlaeserver.Start()
 		if err != nil {
@@ -42,6 +48,9 @@ func main() {
 	// mirv_pgl datastart
 	for {
 		cmd := prompt.Input("HLAE >>> ", completer)
+		if cmd == "exit" {
+			break
+		}
 		hlaeserver.BroadcastRCON(cmd)
 	}
 }

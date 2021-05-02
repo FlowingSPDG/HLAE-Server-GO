@@ -5,10 +5,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/olahol/melody.v1"
+)
+
+const (
+	mirvPglVersion = 2
 )
 
 var (
@@ -40,6 +45,11 @@ func New(host, path string) (*HLAEServer, error) {
 		engine:   nil,
 	}
 	srv.melody = melody.New()
+	srv.eventSerializer = newGameEventUnserializer(enrichments)
+
+	srv.melody.HandleConnect(func(s *melody.Session) {
+
+	})
 	srv.melody.HandleMessageBinary(func(s *melody.Session, data []byte) {
 		buf := bytes.NewBuffer(data)
 		cmd, err := buf.ReadString(nullstr)
@@ -62,7 +72,25 @@ func New(host, path string) (*HLAEServer, error) {
 				return
 			}
 			fmt.Println("Current Version :", version)
-			// srv.handleRequest(cmd) // Add version data
+			if version != mirvPglVersion {
+				return
+			}
+
+			// transBegin
+			s.WriteBinary(commandToByteSlice("mirv_pgl events enrich clientTime 1"))
+			for eventName, v := range enrichments {
+				for enrichName, e := range v {
+					for _, er := range e.GetEnrichment() {
+						cmd := fmt.Sprintf("mirv_pgl events enrich eventProperty \"%s\" \"%s\" \"%s\"", er, eventName, enrichName)
+						s.WriteBinary(commandToByteSlice(cmd))
+					}
+				}
+			}
+			s.WriteBinary(commandToByteSlice("mirv_pgl events enabled 1"))
+			s.WriteBinary(commandToByteSlice("mirv_pgl events useCache 1"))
+			//transEnd
+
+			srv.handleRequest(cmd)
 		case "dataStop":
 			fmt.Println("HLAE Client stopped sending data...")
 			srv.handleRequest(cmd)
@@ -82,16 +110,20 @@ func New(host, path string) (*HLAEServer, error) {
 			srv.handleRequest(cmd)
 		case "cam":
 			camData := &CamData{}
-
 			if err := binary.Read(buf, binary.LittleEndian, camData); err != nil {
-				fmt.Println("Failed to read cam message buffer : ", err)
+				fmt.Println("Failed to parse cam message buffer : ", err)
 				return
 			}
 			srv.handleCamRequest(camData)
 		case "gameEvent":
 			fmt.Println("Received gameEvent data...")
-			//TODO. JSON
-			// srv.handleRequest(cmd)
+			ev, err := srv.eventSerializer.Unserialize(buf)
+			if err != nil {
+				fmt.Println("Failed to parse event descriptions... ERR:", err)
+				return
+			}
+			log.Printf("EVENT : %v\n", ev)
+			srv.handleEventRequest(ev)
 		default:
 			fmt.Printf("Unknown message:[%s]\n", cmd)
 			srv.handleRequest(cmd)
@@ -126,14 +158,16 @@ func New(host, path string) (*HLAEServer, error) {
 
 // HLAEServer Main struct
 type HLAEServer struct {
-	host     string
-	path     string
-	melody   *melody.Melody
-	sessions []*melody.Session
-	engine   *gin.Engine
+	host            string
+	path            string
+	melody          *melody.Melody
+	sessions        []*melody.Session
+	engine          *gin.Engine
+	eventSerializer *gameEventUnserializer
 
-	handlers    []func(string)
-	camhandlers []func(*CamData)
+	handlers      []func(string)
+	camhandlers   []func(*CamData)
+	eventhandlers []func(*GameEventData)
 }
 
 func commandToByteSlice(cmd string) []byte {
@@ -187,6 +221,15 @@ func (h *HLAEServer) RegisterCamHandler(handler func(*CamData)) {
 	fmt.Printf("Registered Camera handler. Currently %d handlers are active\n", len(h.handlers))
 }
 
+// RegisterEventHandler to handle each requests
+func (h *HLAEServer) RegisterEventHandler(handler func(*GameEventData)) {
+	if h.eventhandlers == nil {
+		h.eventhandlers = make([]func(*GameEventData), 0)
+	}
+	h.eventhandlers = append(h.eventhandlers, handler)
+	fmt.Printf("Registered event handler. Currently %d handlers are active\n", len(h.eventhandlers))
+}
+
 func (h *HLAEServer) handleRequest(cmd string) {
 	fmt.Printf("Sending handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
@@ -198,6 +241,13 @@ func (h *HLAEServer) handleCamRequest(cam *CamData) {
 	fmt.Printf("Sending camera handler request for %d handlers...\n", len(h.handlers))
 	for i := 0; i < len(h.handlers); i++ {
 		go h.camhandlers[i](cam)
+	}
+}
+
+func (h *HLAEServer) handleEventRequest(ev *GameEventData) {
+	fmt.Printf("Sending event handler request for %d handlers...\n", len(h.eventhandlers))
+	for i := 0; i < len(h.eventhandlers); i++ {
+		go h.eventhandlers[i](ev)
 	}
 }
 
