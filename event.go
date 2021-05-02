@@ -36,11 +36,12 @@ func newGameEventUnserializer(e Enrichments) *gameEventUnserializer {
 func (g *gameEventUnserializer) Unserialize(r io.Reader) (*GameEventData, error) {
 	var ev *GameEventDescription
 	var eventID int32
-	if err := binary.Read(r, binary.LittleEndian, &eventID); err != nil {
+	buf := bufio.NewReader(r)
+	if err := binary.Read(buf, binary.LittleEndian, &eventID); err != nil {
 		return nil, err
 	}
 	if eventID == 0 {
-		gameEvent, err := newGameEventDescription(r)
+		gameEvent, err := newGameEventDescription(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -58,8 +59,7 @@ func (g *gameEventUnserializer) Unserialize(r io.Reader) (*GameEventData, error)
 			ev = e
 		}
 	}
-	fmt.Println("ev:", ev)
-	return ev.Unserialize(r)
+	return ev.Unserialize(buf)
 }
 
 // Cordinates include float32 X/Y/Z Pos cordinates.
@@ -78,24 +78,23 @@ type GameEventDescription struct {
 	// enrichment // see https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
 }
 
-func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
+func newGameEventDescription(r *bufio.Reader) (*GameEventDescription, error) {
 	d := &GameEventDescription{
 		EventID:   0,
 		EventName: "",
 		Keys:      make([]EventKey, 0),
 	}
-	buf := bufio.NewReader(r)
 	if err := binary.Read(r, binary.LittleEndian, &d.EventID); err != nil {
 		return nil, fmt.Errorf("Failed to parse Event ID : %v", err)
 	}
 
-	eventName, err := buf.ReadString(nullstr)
+	eventName, err := r.ReadString(nullstr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to parse Event Name : %v", err)
 	}
 	d.EventName = eventName
 	for {
-		ok, err := buf.ReadByte()
+		ok, err := r.ReadByte()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -106,13 +105,13 @@ func newGameEventDescription(r io.Reader) (*GameEventDescription, error) {
 		if ok == 0 {
 			break
 		}
-		keyName, err := buf.ReadString(nullstr)
+		keyName, err := r.ReadString(nullstr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Failed to read key name:%v", err)
 		}
 		var keyType int32
 		if err := binary.Read(r, binary.LittleEndian, &keyType); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Failed to read key type:%v", err)
 		}
 		d.Keys = append(d.Keys, EventKey{
 			Name: keyName,
@@ -131,10 +130,14 @@ type GameEventData struct {
 
 // Unserialize parse EventDescription
 func (e *GameEventDescription) Unserialize(r io.Reader) (*GameEventData, error) {
-	d := &GameEventData{}
+	d := &GameEventData{
+		Name:       e.EventName,
+		ClientTime: 0,
+		Keys:       map[string]string{},
+	}
 
 	buf := bufio.NewReader(r)
-	if err := binary.Read(r, binary.LittleEndian, &d.ClientTime); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &d.ClientTime); err != nil {
 		return nil, fmt.Errorf("Failed to read client time:%v", err)
 	}
 
@@ -150,25 +153,25 @@ func (e *GameEventDescription) Unserialize(r io.Reader) (*GameEventData, error) 
 			keyvalue = val
 		case KEYTYPE_FLOAT32:
 			var f float32
-			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, fmt.Errorf("Failed to read float32 value:%v", err)
 			}
 			keyvalue = strconv.FormatFloat(float64(f), 'f', -1, 64)
 		case KEYTYPE_INT32:
 			var f int32
-			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, fmt.Errorf("Failed to read int32 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT16:
 			var f int16
-			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, fmt.Errorf("Failed to read int16 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
 		case KEYTYPE_INT8:
 			var f int8
-			if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &f); err != nil {
 				return nil, fmt.Errorf("Failed to read int8 value:%v", err)
 			}
 			keyvalue = fmt.Sprint(f)
